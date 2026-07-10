@@ -42,7 +42,7 @@ class PostgresClient:
     @asynccontextmanager
     async def session(self) -> AsyncIterator["DatabaseManager"]:
         async with self._session_maker() as session:
-            db = DatabaseManager(session)
+            db = DatabaseManager(session, self._session_maker)
             try:
                 yield db
             except Exception:
@@ -54,8 +54,20 @@ class PostgresClient:
 
 
 class DatabaseManager:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, session_maker: async_sessionmaker) -> None:
         self.session = session
+        self.session_maker = session_maker
+
+    @asynccontextmanager
+    async def transaction(self):
+        async with self.session_maker() as new_session:
+            db = DatabaseManager(new_session, self.session_maker)
+            try:
+                yield db
+                await db.commit()
+            except:
+                await db.rollback()
+                raise
 
     async def commit(self) -> None:
         await self.session.commit()

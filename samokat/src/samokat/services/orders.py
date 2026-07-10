@@ -1,3 +1,5 @@
+import asyncio
+
 from samokat.domain.enums import DeliveryStatus, OrderStatus
 from samokat.domain.exceptions import (
     CartIsEmptyError,
@@ -90,8 +92,12 @@ class OrderService:
         self,
         user_id: int,
     ) -> OrderPreviewData:
-        user_address = await self._get_active_user_address(user_id)
-        cart_items = await self._get_cart_items(user_id)
+        async with asyncio.TaskGroup() as tg:
+            task_user_address = tg.create_task(self._get_active_user_address(user_id))
+            task_cart_items = tg.create_task(self._get_cart_items(user_id))
+
+        user_address = task_user_address.result()
+        cart_items = task_cart_items.result()
 
         reservation = await self._reserve_cart_items(cart_items)
         delivery_price = await self.delivery_connector.get_delivery_price(
@@ -128,23 +134,25 @@ class OrderService:
         self,
         user_id: int,
     ) -> UserAddressData:
-        user_address = await self.db.user_addresses.get_active_user_address(user_id)
+        async with self.db.transaction() as db:
+            user_address = await db.user_addresses.get_active_user_address(user_id)
 
-        if user_address is None:
-            raise UserAddressNotFoundError
+            if user_address is None:
+                raise UserAddressNotFoundError
 
-        return user_address
+            return user_address
 
     async def _get_cart_items(
         self,
         user_id: int,
     ) -> list[PreorderCartItemData]:
-        cart_items = await self.db.cart_items.get_user_cart_items(user_id)
+        async with self.db.transaction() as db:
+            cart_items = await db.cart_items.get_user_cart_items(user_id)
 
-        if not cart_items:
-            raise CartIsEmptyError
+            if not cart_items:
+                raise CartIsEmptyError
 
-        return cart_items
+            return cart_items
 
     async def get_orders(
         self,
