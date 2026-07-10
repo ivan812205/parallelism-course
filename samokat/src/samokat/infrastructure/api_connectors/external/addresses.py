@@ -20,6 +20,8 @@ class AddressConnector(BaseHTTPConnector):
         super().__init__(
             base_url=base_url,
             headers=headers,
+            rate_limit_requests=15,
+            rate_limit_interval=60,
         )
         self._client_id = client_id
         self._client_secret = client_secret
