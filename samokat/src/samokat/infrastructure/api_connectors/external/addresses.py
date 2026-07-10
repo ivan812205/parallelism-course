@@ -35,6 +35,7 @@ class AddressConnector(BaseHTTPConnector):
         response = await self._request_with_token_refresh(
             "GET",
             "/suggest",
+            retry=True,
             params={"query": query},
         )
         response.raise_for_status()
@@ -57,6 +58,7 @@ class AddressConnector(BaseHTTPConnector):
         response = await self._request_with_token_refresh(
             "GET",
             "/resolve",
+            retry=True,
             params={"address_id": address_id},
         )
         response.raise_for_status()
@@ -72,11 +74,13 @@ class AddressConnector(BaseHTTPConnector):
         self,
         method: str,
         url: str,
+        retry: bool,
         **kwargs,
     ) -> httpx.Response:
         response = await self._request(
             method,
             url,
+            retry,
             **self._with_auth_header(kwargs),
         )
 
@@ -93,6 +97,7 @@ class AddressConnector(BaseHTTPConnector):
         return await self._request(
             method,
             url,
+            retry,
             **self._with_auth_header(kwargs),
         )
 
