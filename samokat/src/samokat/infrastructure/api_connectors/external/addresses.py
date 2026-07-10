@@ -12,6 +12,7 @@ class AddressConnector(BaseHTTPConnector):
     def __init__(
         self,
         base_url: str,
+        timeout: float,
         client_id: str,
         client_secret: str,
         headers: dict[str, str] | None = None,
@@ -20,6 +21,7 @@ class AddressConnector(BaseHTTPConnector):
         super().__init__(
             base_url=base_url,
             headers=headers,
+            timeout=timeout,
             rate_limit_requests=15,
             rate_limit_interval=60,
         )

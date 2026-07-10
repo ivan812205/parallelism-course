@@ -8,12 +8,13 @@ class BaseHTTPConnector:
     def __init__(
         self,
         base_url: str,
+        timeout: float,
         headers: dict[str, str] | None = None,
         rate_limit_requests: int | None = None,
         rate_limit_interval: int | None = None,
         retry_count: int = 2,
     ) -> None:
-        self._client = httpx.AsyncClient(base_url=base_url, headers=headers)
+        self._client = httpx.AsyncClient(base_url=base_url, headers=headers, timeout=timeout)
         self.rate_limit_requests = rate_limit_requests
         if rate_limit_requests:
             self._rate_limiter = asyncio.Semaphore(rate_limit_requests)

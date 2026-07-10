@@ -127,6 +127,7 @@ class ConnectorProvider(Provider):
             base_url=address_config.base_url,
             client_id=address_config.client_id,
             client_secret=address_config.client_secret.get_secret_value(),
+            timeout=address_config.timeout,
         )
 
         yield connector
@@ -141,6 +142,7 @@ class ConnectorProvider(Provider):
         darkstore_config = config.darkstore
         connector = DarkstoreConnector(
             base_url=darkstore_config.base_url,
+            timeout=darkstore_config.timeout,
             headers={
                 "X-API-Key": darkstore_config.api_key.get_secret_value(),
             },
@@ -158,6 +160,7 @@ class ConnectorProvider(Provider):
         delivery_config = config.delivery
         connector = DeliveryConnector(
             base_url=delivery_config.base_url,
+            timeout=delivery_config.timeout,
             headers={
                 "X-API-Key": delivery_config.api_key.get_secret_value(),
             },
