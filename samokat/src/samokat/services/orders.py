@@ -99,12 +99,16 @@ class OrderService:
         user_address = task_user_address.result()
         cart_items = task_cart_items.result()
 
-        reservation = await self._reserve_cart_items(cart_items)
-        delivery_price = await self.delivery_connector.get_delivery_price(
-            address=user_address.address_text,
-            lat=user_address.lat,
-            lon=user_address.lon,
-        )
+        async with asyncio.TaskGroup() as tg:
+            reservation_task = tg.create_task(self._reserve_cart_items(cart_items))
+            delivery_price_task = tg.create_task(self.delivery_connector.get_delivery_price(
+                address=user_address.address_text,
+                lat=user_address.lat,
+                lon=user_address.lon,
+            ))
+
+        reservation = reservation_task.result()
+        delivery_price = delivery_price_task.result()
 
         products_price = self._calculate_products_price(cart_items)
 
