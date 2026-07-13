@@ -1,13 +1,10 @@
 [project]
-name = "code-course-video"
+name = "report-service"
 version = "0.1.0"
-description = "empty"
-readme = "README.md"
+description = "ДЗ 1. FastAPI-сервис фоновой обработки отчётов"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.139.0",
     "httpx>=0.28.1",
-    "numpy>=2.5.0",
     "uvicorn[standard]>=0.50.2",
-    "uvloop>=0.22.1",
 ]
