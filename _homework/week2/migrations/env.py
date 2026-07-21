@@ -4,8 +4,9 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from app.config import DATABASE_URL
-from app.models import Base
+from app.config import Settings
+from app.infrastructure.postgres.models import Base
+DATABASE_URL = Settings().postgres.url
 
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
