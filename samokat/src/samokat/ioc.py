@@ -19,6 +19,7 @@ from samokat.infrastructure.api_connectors.internal.darkstore import (
     DarkstoreConnector,
 )
 from samokat.infrastructure.api_connectors.internal.delivery import DeliveryConnector
+from samokat.infrastructure.cache.local import InMemoryCache
 from samokat.infrastructure.clickhouse.manager import (
     ClickHouseManager,
     create_clickhouse_manager,
@@ -177,6 +178,12 @@ class ConnectorProvider(Provider):
 
 class CacheProvider(Provider):
     @provide(scope=Scope.APP)
+    def get_inmemory_cache(
+        self,
+    ) -> InMemoryCache:
+        return InMemoryCache()
+
+    @provide(scope=Scope.APP)
     def get_product_cache(
         self,
         redis: RedisManager,
@@ -276,12 +283,14 @@ class ServiceProvider(Provider):
         product_cache: ProductCache,
         darkstore_products_cache: DarkstoreProductsCache,
         singleflight: SingleFlight,
+        local_cache: InMemoryCache,
     ) -> ProductService:
         return ProductService(
             db=db,
             product_cache=product_cache,
             darkstore_products_cache=darkstore_products_cache,
             singleflight=singleflight,
+            local_cache=local_cache,
         )
 
     @provide(scope=Scope.REQUEST)

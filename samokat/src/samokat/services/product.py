@@ -1,5 +1,6 @@
 from samokat.domain.exceptions import ProductCardNotFoundError, UserAddressNotFoundError
 from samokat.application.dto import CategoryData, ProductCardData, ProductData
+from samokat.infrastructure.cache.local import InMemoryCache
 from samokat.infrastructure.concurrency.singleflight import SingleFlight
 from samokat.infrastructure.postgres.manager import DatabaseManager
 from samokat.infrastructure.redis.darkstore_products import DarkstoreProductsCache
@@ -13,11 +14,13 @@ class ProductService:
         product_cache: ProductCache,
         darkstore_products_cache: DarkstoreProductsCache,
         singleflight: SingleFlight,
+        local_cache: InMemoryCache,
     ) -> None:
         self.db = db
         self.product_cache = product_cache
         self.darkstore_products_cache = darkstore_products_cache
         self.singleflight = singleflight
+        self.local_cache = local_cache
 
     async def get_categories(self) -> list[CategoryData]:
         categories_cached = await self.product_cache.get_categories()
@@ -33,6 +36,10 @@ class ProductService:
         product_id: int,
     ) -> ProductCardData:
         """Реализация с Singleflight"""
+        product_cached_local = self.local_cache.get_product(product_id)
+        if product_cached_local is not None:
+            return product_cached_local
+
         product_cached = await self.product_cache.get_product_card(product_id)
         if product_cached is not None:
             return product_cached
@@ -63,6 +70,7 @@ class ProductService:
             raise ProductCardNotFoundError
 
         await self.product_cache.set_product_card(product_id, product_from_db)
+        self.local_cache.set_product(product_from_db)
         return product_from_db
 
     async def get_category_products(
