@@ -187,6 +187,18 @@ services:
       samokat-redis:
         condition: service_started
 
+  samokat-flower:
+    build:
+      context: ./samokat
+    command: celery -A samokat.infrastructure.tasks.celery_app:celery_app flower --port=5555
+    environment:
+      <<: *samokat_env
+    ports:
+      - "5555:5555"
+    depends_on:
+      samokat-redis:
+        condition: service_started
+
   samokat-frontend:
    build:
      context: ./_frontend/samokat
