@@ -24,3 +24,10 @@ delivery_analytics/
 # Local compose files
 docker-compose.full.yaml
 docker-compose.delivery_analytics.yaml
+
+# Celery runtime files
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat.pid
+celeryd.pid
+celery*.log

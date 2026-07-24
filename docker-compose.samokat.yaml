@@ -161,6 +161,32 @@ services:
       samokat-postgres:
         condition: service_healthy
 
+  samokat-celery-worker:
+    build:
+      context: ./samokat
+    command: celery -A samokat.infrastructure.tasks.celery_app:celery_app worker --loglevel=info
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+      darkstore-api:
+        condition: service_started
+
+  samokat-celery-beat:
+    build:
+      context: ./samokat
+    command: celery -A samokat.infrastructure.tasks.celery_app:celery_app beat --loglevel=info
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+
   samokat-frontend:
    build:
      context: ./_frontend/samokat
