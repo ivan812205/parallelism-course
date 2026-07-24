@@ -1,8 +1,10 @@
 import asyncio
 import logging
+import time
 
 from dishka import Scope
 
+from samokat.infrastructure.tasks._threads_loop import celery_event_loop
 from samokat.infrastructure.tasks.celery_app import celery_app
 from samokat.infrastructure.tasks.config import settings
 from samokat.ioc import create_container
@@ -46,3 +48,23 @@ def generate_order_report(report_id: str) -> None:
         logger.info("Report finished")
 
     asyncio.run(_helper())
+
+
+#############
+## ОПАСНО! ##
+#############
+
+async def _get_product_categories() -> None:
+    from samokat.services.product import ProductService
+
+    container = create_container(settings)
+    logger.info(f"Categories started, time:{time.perf_counter()}")
+    async with container(scope=Scope.REQUEST) as request_container:
+        service = await request_container.get(ProductService)
+        res = await service.get_categories()
+    logger.info(f"Categories finished, time:{time.perf_counter()}, {res=}")
+
+
+@celery_app.task(name="truly_async_task")
+def truly_async_task() -> None:
+    celery_event_loop.run(_get_product_categories())

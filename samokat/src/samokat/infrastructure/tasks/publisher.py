@@ -6,3 +6,9 @@ class TaskPublisher:
         # generate_order_report.delay(report_id)
         # from samokat.infrastructure.tasks.celery_app import celery_app
         # celery_app.send_task(name="generate_order_report", kwargs={"report_id": report_id})
+
+    def schedule_20_async_tasks(self):
+        from samokat.infrastructure.tasks.celery_tasks import truly_async_task
+
+        for _ in range(200):
+            truly_async_task.delay()

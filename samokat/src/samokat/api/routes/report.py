@@ -51,3 +51,13 @@ async def download_report(
         filename=f"orders-{report.id}.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+#############
+## ОПАСНО! ##
+#############
+
+
+@router.get("/celery/test")
+async def run_celery_tasks(service: FromDishka[ReportService]):
+    return await service.run_bg_tasks()

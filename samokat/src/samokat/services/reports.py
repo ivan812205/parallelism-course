@@ -48,3 +48,6 @@ class ReportService:
             await self.db.reports.set_failed(report_id, str(exc))
             await self.db.commit()
             raise
+
+    async def run_bg_tasks(self):
+        self.task_publisher.schedule_20_async_tasks()
