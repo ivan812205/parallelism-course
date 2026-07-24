@@ -8,6 +8,7 @@ from samokat.config import (
     ClickHouseConfig,
     ConnectorsConfig,
     PostgresConfig,
+    ReportsConfig,
     RedisConfig,
     Settings,
     TokenConfig,
@@ -30,6 +31,8 @@ from samokat.infrastructure.postgres.manager import DatabaseManager, PostgresCli
 from samokat.infrastructure.redis.darkstore_products import DarkstoreProductsCache
 from samokat.infrastructure.redis.manager import RedisManager, create_redis_manager
 from samokat.infrastructure.redis.product_card_cache import ProductCache
+from samokat.infrastructure.reports.excel import OrdersReportExcelWriter
+from samokat.infrastructure.tasks.publisher import TaskPublisher
 from samokat.security.password_hasher import PasswordHasherManager
 from samokat.security.security_manager import SecurityManager
 from samokat.security.token_processor import TokenProcessor
@@ -39,6 +42,7 @@ from samokat.services.cart import CartService
 from samokat.services.darkstore_sync import DarkstoreSyncService
 from samokat.services.orders import OrderService
 from samokat.services.product import ProductService
+from samokat.services.reports import ReportService
 from samokat.services.users import UserService
 
 
@@ -70,6 +74,10 @@ class ConfigProvider(Provider):
     @provide(scope=Scope.APP)
     def get_connectors_config(self, settings: Settings) -> ConnectorsConfig:
         return settings.connectors
+
+    @provide(scope=Scope.APP)
+    def get_reports_config(self, settings: Settings) -> ReportsConfig:
+        return settings.reports
 
 
 class PostgresProvider(Provider):
@@ -231,6 +239,23 @@ class ClickhouseEventQueueProvider(Provider):
         return ClickhouseEventQueue(ch_client)
 
 
+class ReportWriterProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_orders_report_excel_writer(
+        self,
+        config: ReportsConfig,
+    ) -> OrdersReportExcelWriter:
+        return OrdersReportExcelWriter(config)
+
+
+class TaskPublisherProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_task_publisher(
+        self,
+    ) -> TaskPublisher:
+        return TaskPublisher()
+
+
 class ServiceProvider(Provider):
     @provide(scope=Scope.REQUEST)
     def get_user_service(
@@ -319,6 +344,19 @@ class ServiceProvider(Provider):
             darkstore_products_cache=darkstore_products_cache,
         )
 
+    @provide(scope=Scope.REQUEST)
+    def get_report_service(
+        self,
+        db: DatabaseManager,
+        excel_writer: OrdersReportExcelWriter,
+        task_publisher: TaskPublisher,
+    ) -> ReportService:
+        return ReportService(
+            db=db,
+            excel_writer=excel_writer,
+            task_publisher=task_publisher,
+        )
+
 
 def create_container(settings: Settings):
     return make_async_container(
@@ -330,6 +368,8 @@ def create_container(settings: Settings):
         CacheProvider(),
         SingleFlightProvider(),
         ClickhouseEventQueueProvider(),
+        ReportWriterProvider(),
+        TaskPublisherProvider(),
         SecurityProvider(),
         ServiceProvider(),
         FastapiProvider(),

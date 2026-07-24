@@ -12,3 +12,10 @@ class DeliveryStatus(StrEnum):
     COURIER_ARRIVED_TO_DARKSTORE = "courier_arrived_to_darkstore"
     DELIVERING = "delivering"
     COMPLETED = "completed"
+
+
+class ReportStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -154,3 +156,37 @@ class OrderData(BaseModel):
 class OrderDetailsData(OrderData):
     items: list[OrderItemData]
     delivery: OrderDeliveryData | None = None
+
+
+class OrderReportRowData(BaseModel):
+    order_id: int
+    status: str
+    address_text: str
+    total_price: int
+    created_at: datetime
+    product_title: str
+    price: int
+    quantity: int
+    item_total_price: int
+
+    model_config = ConfigDict(frozen=True)
+
+
+class ReportCreateData(BaseModel):
+    report_id: str
+    status: str
+
+    model_config = ConfigDict(frozen=True)
+
+
+class ReportData(BaseModel):
+    id: str
+    user_id: int
+    status: str
+    file_path: str | None = None
+    error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+
+    model_config = ConfigDict(frozen=True)

@@ -94,6 +94,10 @@ class ConnectorsConfig(BaseModel):
     delivery: DeliveryApiConfig
 
 
+class ReportsConfig(BaseModel):
+    directory: str = "reports"
+
+
 class Settings(BaseSettings):
     app: AppConfig
     postgres: PostgresConfig
@@ -102,6 +106,7 @@ class Settings(BaseSettings):
     token: TokenConfig
     cors: CorsConfig = Field(default_factory=CorsConfig)
     connectors: ConnectorsConfig
+    reports: ReportsConfig = Field(default_factory=ReportsConfig)
 
     model_config = SettingsConfigDict(
         env_file=".env",

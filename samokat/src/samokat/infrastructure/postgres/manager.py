@@ -19,6 +19,7 @@ from samokat.infrastructure.postgres.repositories.products_categories import (
     ProductCategoryRepo,
 )
 from samokat.infrastructure.postgres.repositories.refresh_tokens import RefreshTokenRepo
+from samokat.infrastructure.postgres.repositories.reports import ReportRepo
 from samokat.infrastructure.postgres.repositories.user_adresses import UserAddressRepo
 from samokat.infrastructure.postgres.repositories.users import UserRepo
 
@@ -106,3 +107,7 @@ class DatabaseManager:
     @property
     def orders(self) -> OrderRepo:
         return OrderRepo(self.session)
+
+    @property
+    def reports(self) -> ReportRepo:
+        return ReportRepo(self.session)

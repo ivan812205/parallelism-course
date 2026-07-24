@@ -28,6 +28,13 @@ docker-compose.delivery_analytics.yaml
 # Celery runtime files
 celerybeat-schedule
 celerybeat-schedule.*
+celerybeat-schedule*
+samokat/celerybeat-schedule
+samokat/celerybeat-schedule.*
+samokat/celerybeat-schedule*
 celerybeat.pid
 celeryd.pid
 celery*.log
+
+# Generated reports
+samokat/reports/

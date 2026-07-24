@@ -5,6 +5,7 @@ from samokat.application.dto import (
     OrderDetailsData,
     OrderItemCreateData,
     OrderItemData,
+    OrderReportRowData,
 )
 from samokat.infrastructure.postgres.models import OrderItemModel, OrderModel
 from samokat.infrastructure.postgres.repositories.base import BaseRepo
@@ -148,4 +149,39 @@ class OrderRepo(BaseRepo):
                 total_price=item.price * item.quantity,
             )
             for item in items
+        ]
+
+    async def get_report_rows(self, user_id: int) -> list[OrderReportRowData]:
+        query = (
+            select(
+                OrderModel.id.label("order_id"),
+                OrderModel.status,
+                OrderModel.address_text,
+                OrderModel.total_price,
+                OrderModel.created_at,
+                OrderItemModel.product_title,
+                OrderItemModel.price,
+                OrderItemModel.quantity,
+            )
+            .join(OrderItemModel, OrderItemModel.order_id == OrderModel.id)
+            .where(OrderModel.user_id == user_id)
+            .order_by(OrderModel.id.desc(), OrderItemModel.id.asc())
+        )
+
+        resp = await self.session.execute(query)
+        rows = resp.all()
+
+        return [
+            OrderReportRowData(
+                order_id=row.order_id,
+                status=row.status,
+                address_text=row.address_text,
+                total_price=row.total_price,
+                created_at=row.created_at,
+                product_title=row.product_title,
+                price=row.price,
+                quantity=row.quantity,
+                item_total_price=row.price * row.quantity,
+            )
+            for row in rows
         ]

@@ -1,0 +1,8 @@
+class TaskPublisher:
+    async def schedule_order_report(self, report_id: str):
+        from samokat.infrastructure.tasks.celery_tasks import generate_order_report
+
+        generate_order_report.apply_async(kwargs={"report_id": report_id})
+        # generate_order_report.delay(report_id)
+        # from samokat.infrastructure.tasks.celery_app import celery_app
+        # celery_app.send_task(name="generate_order_report", kwargs={"report_id": report_id})
