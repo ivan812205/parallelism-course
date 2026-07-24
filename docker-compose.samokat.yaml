@@ -199,6 +199,61 @@ services:
       samokat-redis:
         condition: service_started
 
+  samokat-taskiq-admin:
+    image: ghcr.io/taskiq-python/taskiq-admin:latest
+    ports:
+      - "3000:3000"
+    environment:
+      TASKIQ_ADMIN_API_TOKEN: supersecret
+    volumes:
+      - samokat_taskiq_admin_data:/usr/database/
+
+  samokat-taskiq-async-worker:
+    build:
+      context: ./samokat
+    command: taskiq worker samokat.infrastructure.tasks.taskiq_app:broker_async samokat.infrastructure.tasks.taskiq_tasks
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+      darkstore-api:
+        condition: service_started
+      samokat-taskiq-admin:
+        condition: service_started
+
+  samokat-taskiq-cpu-worker:
+    build:
+      context: ./samokat
+    command: taskiq worker samokat.infrastructure.tasks.taskiq_app:broker_cpu samokat.infrastructure.tasks.taskiq_tasks
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+      samokat-taskiq-admin:
+        condition: service_started
+
+  samokat-taskiq-scheduler:
+    build:
+      context: ./samokat
+    command: taskiq scheduler samokat.infrastructure.tasks.taskiq_app:scheduler samokat.infrastructure.tasks.taskiq_tasks
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+      darkstore-api:
+        condition: service_started
+      samokat-taskiq-admin:
+        condition: service_started
+
   samokat-frontend:
    build:
      context: ./_frontend/samokat
@@ -232,3 +287,4 @@ volumes:
   samokat_postgres_data:
   samokat_clickhouse_data:
   samokat_kafka_data:
+  samokat_taskiq_admin_data:
