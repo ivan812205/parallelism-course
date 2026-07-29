@@ -14,7 +14,9 @@ from delivery_analytics.infrastructure.postgres.manager import (
     DatabaseManager,
     PostgresClient,
 )
+from delivery_analytics.infrastructure.websocket.manager import WebsocketManager
 from delivery_analytics.services.tracking_aggregation import TrackingAggregationService
+from delivery_analytics.services.websocket_gps_broadcaster import WebsocketGPSBroadcaster
 
 
 class ConfigProvider(Provider):
@@ -61,8 +63,25 @@ class ServiceProvider(Provider):
     def get_tracking_aggregation_service(
         self,
         db: DatabaseManager,
+        ws_broadcaster: WebsocketGPSBroadcaster,
     ) -> TrackingAggregationService:
-        return TrackingAggregationService(db=db)
+        return TrackingAggregationService(
+            db=db,
+            ws_broadcaster=ws_broadcaster,
+        )
+
+    @provide(scope=Scope.REQUEST)
+    def get_ws_broadcaster(
+        self,
+        ws_manager: WebsocketManager,
+    ) -> WebsocketGPSBroadcaster:
+        return WebsocketGPSBroadcaster(ws_manager=ws_manager)
+
+
+class WebsocketInfrastructureProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_ws_manager(self) -> WebsocketManager:
+        return WebsocketManager()
 
 
 class KafkaProvider(Provider):
@@ -81,5 +100,6 @@ def create_container(settings: Settings):
         PostgresProvider(),
         ServiceProvider(),
         KafkaProvider(),
+        WebsocketInfrastructureProvider(),
         FastapiProvider(),
     )

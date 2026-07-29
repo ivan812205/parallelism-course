@@ -1,8 +1,10 @@
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Any
 
 from delivery_analytics.infrastructure.postgres.manager import DatabaseManager
+from delivery_analytics.services.websocket_gps_broadcaster import WebsocketGPSBroadcaster
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +15,10 @@ class TrackingAggregationService:
     def __init__(
         self,
         db: DatabaseManager,
+        ws_broadcaster: WebsocketGPSBroadcaster,
     ) -> None:
         self.db = db
+        self.ws_broadcaster = ws_broadcaster
 
     async def process(self, events: list[Any]) -> None:
         tracking_points = self._prepare_tracking_points(events)
@@ -22,6 +26,9 @@ class TrackingAggregationService:
             return
 
         await self._store_tracking_points(tracking_points)
+        _ = asyncio.create_task(
+            self.ws_broadcaster.broadcast_courier_tracking_events(tracking_points),
+        )
 
     def _prepare_tracking_points(
         self,
