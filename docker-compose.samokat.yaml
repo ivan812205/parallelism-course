@@ -91,8 +91,8 @@ services:
           $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --list >/dev/null 2>&1 && break
           sleep 2
         done
-        $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --create --if-not-exists --topic delivery.status_events --partitions 3 --replication-factor 1
-        $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --create --if-not-exists --topic courier.locations --partitions 3 --replication-factor 1
+        $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --create --if-not-exists --topic delivery.tracking --partitions 2 --replication-factor 1
+        $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --alter --topic delivery.tracking --partitions 2 || true
 
   address-api:
     build:
@@ -157,6 +157,8 @@ services:
       CONNECTORS__DELIVERY__BASE_URL: http://delivery-api:8000
       CONNECTORS__DELIVERY__API_KEY: dl-L4pZ9cV2mH8qT6rN3xW7
       CONNECTORS__DELIVERY__TIMEOUT: 5
+      KAFKA__BOOTSTRAP_SERVERS: samokat-kafka:29092
+      KAFKA__TRACKING_TOPIC: delivery.tracking
     depends_on:
       samokat-postgres:
         condition: service_healthy

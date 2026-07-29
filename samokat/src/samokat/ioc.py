@@ -40,6 +40,9 @@ from samokat.services.addresses import AddressService
 from samokat.services.auth import AuthService
 from samokat.services.cart import CartService
 from samokat.services.darkstore_sync import DarkstoreSyncService
+from samokat.services._delivery_tracking_simulation import (
+    DeliveryTrackingSimulationService,
+)
 from samokat.services.orders import OrderService
 from samokat.services.product import ProductService
 from samokat.services.reports import ReportService
@@ -257,6 +260,12 @@ class TaskPublisherProvider(Provider):
 
 
 class ServiceProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_delivery_tracking_simulation_service(
+        self,
+    ) -> DeliveryTrackingSimulationService:
+        return DeliveryTrackingSimulationService()
+
     @provide(scope=Scope.REQUEST)
     def get_user_service(
         self,

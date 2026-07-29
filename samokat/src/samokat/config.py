@@ -65,6 +65,8 @@ class CorsConfig(BaseModel):
         default_factory=lambda: [
             "http://localhost:5173",
             "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
         ],
     )
 
@@ -98,6 +100,11 @@ class ReportsConfig(BaseModel):
     directory: str = "reports"
 
 
+class KafkaConfig(BaseModel):
+    bootstrap_servers: str = "localhost:9092"
+    tracking_topic: str = "delivery.tracking"
+
+
 class Settings(BaseSettings):
     app: AppConfig
     postgres: PostgresConfig
@@ -107,6 +114,7 @@ class Settings(BaseSettings):
     cors: CorsConfig = Field(default_factory=CorsConfig)
     connectors: ConnectorsConfig
     reports: ReportsConfig = Field(default_factory=ReportsConfig)
+    kafka: KafkaConfig = Field(default_factory=KafkaConfig)
 
     model_config = SettingsConfigDict(
         env_file=".env",
