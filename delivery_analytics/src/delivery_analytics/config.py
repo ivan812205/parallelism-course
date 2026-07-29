@@ -27,9 +27,16 @@ class PostgresConfig(BaseModel):
         )
 
 
+class KafkaConfig(BaseModel):
+    bootstrap_servers: str = "localhost:9092"
+    tracking_topic: str = "delivery.tracking"
+    group_id: str = "delivery.tracking"
+
+
 class Settings(BaseSettings):
     app: AppConfig = AppConfig()
     postgres: PostgresConfig = PostgresConfig()
+    kafka: KafkaConfig = KafkaConfig()
 
     model_config = SettingsConfigDict(
         env_file=".env",

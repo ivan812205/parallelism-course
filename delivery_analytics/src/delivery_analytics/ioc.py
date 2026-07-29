@@ -1,12 +1,15 @@
 from collections.abc import AsyncIterator
 
-from dishka import Provider, Scope, make_async_container, provide
+from dishka import AsyncContainer, Provider, Scope, make_async_container, provide
 from dishka.integrations.fastapi import FastapiProvider
+from faststream.kafka import KafkaBroker
 
 from delivery_analytics.config import (
+    KafkaConfig,
     PostgresConfig,
     Settings,
 )
+from delivery_analytics.infrastructure.kafka.consumer import create_kafka_broker
 from delivery_analytics.infrastructure.postgres.manager import (
     DatabaseManager,
     PostgresClient,
@@ -26,6 +29,10 @@ class ConfigProvider(Provider):
     @provide(scope=Scope.APP)
     def get_postgres_config(self, settings: Settings) -> PostgresConfig:
         return settings.postgres
+
+    @provide(scope=Scope.APP)
+    def get_kafka_config(self, settings: Settings) -> KafkaConfig:
+        return settings.kafka
 
 
 class PostgresProvider(Provider):
@@ -58,10 +65,21 @@ class ServiceProvider(Provider):
         return TrackingAggregationService(db=db)
 
 
+class KafkaProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_kafka_broker(
+        self,
+        config: KafkaConfig,
+        container: AsyncContainer,
+    ) -> KafkaBroker:
+        return create_kafka_broker(config, container)
+
+
 def create_container(settings: Settings):
     return make_async_container(
         ConfigProvider(settings),
         PostgresProvider(),
         ServiceProvider(),
+        KafkaProvider(),
         FastapiProvider(),
     )
