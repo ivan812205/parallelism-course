@@ -4,6 +4,10 @@ import random
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from faststream.kafka import KafkaBroker, KafkaPublishMessage
+
+from samokat.config import KafkaConfig
+
 SIMULATION_ROUTES = (
     {
         "name": "Невский проспект",
@@ -72,8 +76,10 @@ COURIER_ROUTE_LATERAL_METERS = 34.0
 
 
 class DeliveryTrackingSimulationService:
-    def __init__(self) -> None:
+    def __init__(self, broker: KafkaBroker, config: KafkaConfig) -> None:
         self._publish_concurrency = 100
+        self._broker = broker
+        self._config = config
 
     async def run_simulation(
         self,
@@ -105,8 +111,25 @@ class DeliveryTrackingSimulationService:
 
     async def _publish_payloads(self, payloads: list[dict]) -> None:
         for start in range(0, len(payloads), self._publish_concurrency):
-            _ = payloads[start : start + self._publish_concurrency]
-            # TODO: отправить в брокера
+            chunk = payloads[start: start + self._publish_concurrency]
+
+            # for event in chunk:
+            #     await self._broker.publish(
+            #         message=event,
+            #         topic=self._config.tracking_topic,
+            #         key=event["courier_id"].encode(),
+            #     )
+
+            await self._broker.publish_batch(
+                *[
+                    KafkaPublishMessage(
+                        body=event,
+                        key=event["courier_id"].encode(),
+                    )
+                    for event in chunk
+                ],
+                topic=self._config.tracking_topic,
+            )
 
     def _build_couriers(self, couriers_count: int = 100) -> list[dict]:
         couriers = []

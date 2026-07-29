@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from dishka import AsyncContainer, Scope
 from fastapi import FastAPI
+from faststream.kafka import KafkaBroker
 
 from samokat.infrastructure.clickhouse.queue import ClickhouseEventQueue
 from samokat.services.darkstore_sync import DarkstoreSyncService
@@ -17,7 +18,9 @@ def create_lifespan(container: AsyncContainer):
         logger.info("Samokat lifespan started")
         # darkstore_sync_task = asyncio.create_task(run_darkstore_sync_loop(container))
         ch_event_queue = await container.get(ClickhouseEventQueue)
+        kafka_broker = await container.get(KafkaBroker)
         ch_event_queue.start()
+        await kafka_broker.start()
 
         try:
             yield
@@ -27,6 +30,7 @@ def create_lifespan(container: AsyncContainer):
             # await asyncio.gather(darkstore_sync_task, return_exceptions=True)
             # logger.info("Darkstore products sync task cancelled")
             await ch_event_queue.stop()
+            await kafka_broker.stop()
 
     return lifespan
 

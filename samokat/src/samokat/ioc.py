@@ -3,10 +3,12 @@ from collections.abc import AsyncIterator
 from dishka import Provider, Scope, make_async_container, provide
 from dishka.integrations.fastapi import FastapiProvider
 from argon2 import PasswordHasher
+from faststream.kafka import KafkaBroker
 
 from samokat.config import (
     ClickHouseConfig,
     ConnectorsConfig,
+    KafkaConfig,
     PostgresConfig,
     ReportsConfig,
     RedisConfig,
@@ -81,6 +83,10 @@ class ConfigProvider(Provider):
     @provide(scope=Scope.APP)
     def get_reports_config(self, settings: Settings) -> ReportsConfig:
         return settings.reports
+
+    @provide(scope=Scope.APP)
+    def get_kafka_config(self, settings: Settings) -> KafkaConfig:
+        return settings.kafka
 
 
 class PostgresProvider(Provider):
@@ -259,12 +265,29 @@ class TaskPublisherProvider(Provider):
         return TaskPublisher()
 
 
+class KafkaProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_kafka_broker(
+        self,
+        config: KafkaConfig,
+    ) -> KafkaBroker:
+        return KafkaBroker(
+            bootstrap_servers=config.bootstrap_servers,
+            linger_ms=50,
+        )
+
+
 class ServiceProvider(Provider):
     @provide(scope=Scope.APP)
     def get_delivery_tracking_simulation_service(
         self,
+        broker: KafkaBroker,
+        config: KafkaConfig,
     ) -> DeliveryTrackingSimulationService:
-        return DeliveryTrackingSimulationService()
+        return DeliveryTrackingSimulationService(
+            broker=broker,
+            config=config,
+        )
 
     @provide(scope=Scope.REQUEST)
     def get_user_service(
@@ -381,5 +404,6 @@ def create_container(settings: Settings):
         TaskPublisherProvider(),
         SecurityProvider(),
         ServiceProvider(),
+        KafkaProvider(),
         FastapiProvider(),
     )
