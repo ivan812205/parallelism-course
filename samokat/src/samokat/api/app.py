@@ -5,6 +5,7 @@ from dishka.integrations.fastapi import setup_dishka
 
 from samokat.api.exceptions import setup_exception_handlers
 from samokat.api.lifespan import create_lifespan
+from samokat.api.profiling import setup_profiling_middleware
 from samokat.api.routes import main_router
 from samokat.config import Settings
 
@@ -29,6 +30,7 @@ def create_fastapi_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # setup_profiling_middleware(app, settings.profiling)
 
     setup_dishka(
         container=container,

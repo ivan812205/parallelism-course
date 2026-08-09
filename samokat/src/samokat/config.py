@@ -71,6 +71,14 @@ class CorsConfig(BaseModel):
     )
 
 
+class ProfilingConfig(BaseModel):
+    enabled: bool = True
+    pyinstrument_enabled: bool = True
+    interval: float = 0.001
+    output_directory: str = "profiles/pyinstrument"
+    public_path: str = "/__profiles"
+
+
 class AddressApiConfig(BaseModel):
     base_url: str
     client_id: str
@@ -112,6 +120,7 @@ class Settings(BaseSettings):
     clickhouse: ClickHouseConfig
     token: TokenConfig
     cors: CorsConfig = Field(default_factory=CorsConfig)
+    profiling: ProfilingConfig = Field(default_factory=ProfilingConfig)
     connectors: ConnectorsConfig
     reports: ReportsConfig = Field(default_factory=ReportsConfig)
     kafka: KafkaConfig = Field(default_factory=KafkaConfig)
