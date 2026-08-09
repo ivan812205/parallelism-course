@@ -34,6 +34,22 @@ dev = [
     "ruff>=0.15.18",
 ]
 
+[tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
+select = [
+    "ASYNC210", # Запрещает блокирующие HTTP-вызовы в async-функциях
+    "ASYNC212", # Запрещает синхронный httpx.Client в async-функциях
+    "ASYNC220", # Запрещает блокирующее создание subprocess в async-функциях
+    "ASYNC221", # Запрещает блокирующий запуск процессов в async-функциях
+    "ASYNC222", # Запрещает блокирующее ожидание процессов в async-функциях
+    "ASYNC230", # Запрещает обычный open() в async-функциях
+    "ASYNC240", # Запрещает блокирующие os.path/pathlib операции в async-функциях
+    "ASYNC251", # Запрещает time.sleep() в async-функциях
+    "RUF006", # Требует сохранять ссылки на созданные asyncio task
+    "RUF029", # Находит async-функции без await
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

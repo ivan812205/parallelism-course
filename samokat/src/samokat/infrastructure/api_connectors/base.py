@@ -46,7 +46,10 @@ class BaseHTTPConnector:
         for attempt in range(attempts):
             if self.rate_limit_requests:
                 await self._rate_limiter.acquire()
-                _ = asyncio.create_task(self.release_rate_limiter_later())
+                _ = asyncio.create_task(  # noqa: RUF006
+                    self.release_rate_limiter_later(),
+                    name="samokat.http.rate_limiter.release",
+                )
 
             try:
                 response = await self._client.request(method, url, **kwargs)

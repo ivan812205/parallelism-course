@@ -14,7 +14,7 @@ bearer_scheme = HTTPBearer()
 
 
 @inject
-async def get_current_user_id(
+async def get_current_user_id(  # noqa: RUF029
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
     security: FromDishka[SecurityManager],
 ) -> int:
