@@ -22,6 +22,7 @@ from samokat.infrastructure.postgres.repositories.refresh_tokens import RefreshT
 from samokat.infrastructure.postgres.repositories.reports import ReportRepo
 from samokat.infrastructure.postgres.repositories.user_adresses import UserAddressRepo
 from samokat.infrastructure.postgres.repositories.users import UserRepo
+from samokat.infrastructure.postgres.query_counter import register_sql_query_counter
 
 
 class PostgresClient:
@@ -33,6 +34,7 @@ class PostgresClient:
             max_overflow=config.max_overflow,
             pool_pre_ping=True,
         )
+        # register_sql_query_counter(self._engine)
 
         self._session_maker = async_sessionmaker(
             bind=self._engine,
