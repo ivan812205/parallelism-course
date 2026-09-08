@@ -19,7 +19,13 @@ class PostgresClient:
     """Владеет движком и фабрикой сессий (пул соединений на всё приложение)."""
 
     def __init__(self, config: PostgresConfig) -> None:
-        self._engine = create_async_engine(config.url, pool_pre_ping=True)
+        self._engine = create_async_engine(
+            config.url,
+            pool_pre_ping=True,
+            pool_size=config.pool_size,
+            max_overflow=config.max_overflow,
+            pool_timeout=config.pool_timeout_seconds,
+        )
         # expire_on_commit=False — атрибуты живут после commit (нужно при сборке ответа)
         self._session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
 

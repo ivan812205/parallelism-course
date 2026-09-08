@@ -1,6 +1,10 @@
 services:
   db:
     image: postgres:17-alpine
+    # 100 соединений по умолчанию делят между собой все процессы: воркеры uvicorn,
+    # воркеры taskiq и сервис мониторинга. В ДЗ 6 четыре воркера приложения упирались
+    # в «too many clients already» — в продакшене тут был бы пулер вроде pgbouncer.
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres

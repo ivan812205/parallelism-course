@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 
 from dishka import Provider, Scope, make_async_container, provide
 from dishka.integrations.fastapi import FastapiProvider
-from redis.asyncio import Redis
+from redis.asyncio import BlockingConnectionPool, Redis
 
 from app.config import (
     BookingConfig,
@@ -114,9 +114,18 @@ class PostgresProvider(Provider):
 class RedisProvider(Provider):
     @provide(scope=Scope.APP)
     async def get_redis(self, config: RedisConfig) -> AsyncIterator[Redis]:
-        redis = Redis.from_url(config.url, decode_responses=True)
+        # BlockingConnectionPool: при исчерпании соединений запрос ждёт своей очереди,
+        # а не получает MaxConnectionsError (проверено нагрузкой на 200 соединений)
+        pool = BlockingConnectionPool.from_url(
+            config.url,
+            max_connections=config.max_connections,
+            timeout=config.pool_timeout_seconds,
+            decode_responses=True,
+        )
+        redis = Redis(connection_pool=pool)
         yield redis
         await redis.aclose()
+        await pool.disconnect()
 
     @provide(scope=Scope.APP)
     def get_event_cache(self, redis: Redis, config: EventCacheConfig) -> EventCache:

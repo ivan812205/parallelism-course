@@ -47,3 +47,15 @@ uv run uvicorn monitoring.main:app --port 8001
 Генератор тестовых покупок поднимается вместе с основным приложением. Его можно
 выключить или ускорить через переменные окружения, например
 `PURCHASE_GENERATOR__ENABLED=false` или `PURCHASE_GENERATOR__BURST_SIZE=40`.
+
+## Нагрузочные тесты (ДЗ 6)
+
+Лестница нагрузки по ручкам гоняется скриптом (нужен `oha`, ставится через
+`brew install oha`):
+
+```bash
+uv run python scripts/load_test.py --port 8000
+```
+
+Результаты замеров, найденные узкие места и внесённые правки — в
+[docs/load_testing.md](docs/load_testing.md).

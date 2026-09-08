@@ -12,10 +12,22 @@ class AppConfig(BaseModel):
 
 class PostgresConfig(BaseModel):
     url: str = "postgresql+psycopg://postgres:postgres@localhost:7432/postgres"
+    # Пул по умолчанию (5 + 10) упирается уже на десятках конкурентных запросов:
+    # дашборд берёт две независимые сессии, и запросы встают в очередь.
+    # Считать надо на все процессы: воркеры × (pool_size + max_overflow) должно быть
+    # меньше max_connections PostgreSQL (по умолчанию 100). Проверено в ДЗ 6:
+    # 4 воркера × (20 + 20) дают «FATAL: sorry, too many clients already».
+    pool_size: int = 10
+    max_overflow: int = 10
+    # ждать соединение полминуты бессмысленно: клиент уже ушёл
+    pool_timeout_seconds: float = 5.0
 
 
 class RedisConfig(BaseModel):
     url: str = "redis://localhost:7379/0"
+    # при исчерпании пула ждём соединение, а не падаем с MaxConnectionsError
+    max_connections: int = 256
+    pool_timeout_seconds: float = 3.0
 
 
 class PaymentApiConfig(BaseModel):

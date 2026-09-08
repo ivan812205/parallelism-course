@@ -11,7 +11,11 @@ class DashboardService:
         self._db = db
 
     async def build(self, *, event_id: int, organizer_id: int) -> DashboardData:
-        event = await self._db.events.get(event_id)
+        # мероприятие читаем в отдельной короткой сессии: сессия запроса не должна
+        # держать соединение всё время, пока считаются агрегаты (иначе на десятках
+        # конкурентных дашбордов пул выедается досуха — проверено нагрузкой в ДЗ 6)
+        async with self._db.transaction() as tx:
+            event = await tx.events.get(event_id)
         if event is None or event.organizer_id != organizer_id:
             # 404, а не 403 — не раскрываем существование чужих мероприятий
             raise EventNotFoundError
