@@ -1,25 +1,13 @@
-import enum
-from datetime import datetime, timezone
+from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from app.domain.enums import BookingStatus, SeatStatus
 
 
 class Base(DeclarativeBase):
     pass
-
-
-class SeatStatus(str, enum.Enum):
-    available = "available"
-    reserved = "reserved"
-    sold = "sold"
-
-
-class BookingStatus(str, enum.Enum):
-    pending_payment = "pending_payment"
-    paid = "paid"
-    cancelled = "cancelled"
-    expired = "expired"
 
 
 class Location(Base):
