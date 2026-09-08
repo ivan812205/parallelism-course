@@ -12,7 +12,9 @@ from app.config import (
     PaymentApiConfig,
     PostgresConfig,
     ProtectionApiConfig,
+    ProtectionRetryConfig,
     RedisConfig,
+    ReportConfig,
     Settings,
 )
 from app.infrastructure.api_connectors.payment import PaymentConnector
@@ -24,11 +26,14 @@ from app.infrastructure.redis.redis_lock import RedisLock
 from app.services.catalog import CatalogService
 from app.services.checkout import CheckoutService
 from app.services.dashboard import DashboardService
+from app.services.event_report_builder import EventReportBuilder
 from app.services.event_reader import EventReader
 from app.services.event_view_collector import EventViewCollector
 from app.services.event_view_tracker import EventViewTracker
+from app.services.expired_booking_cleaner import ExpiredBookingCleaner
 from app.services.organizer import OrganizerService
 from app.services.payment import PaymentService
+from app.services.protection_recalculator import ProtectionRecalculator
 
 
 class ConfigProvider(Provider):
@@ -71,6 +76,14 @@ class ConfigProvider(Provider):
     @provide(scope=Scope.APP)
     def get_event_view_config(self, settings: Settings) -> EventViewConfig:
         return settings.event_views
+
+    @provide(scope=Scope.APP)
+    def get_report_config(self, settings: Settings) -> ReportConfig:
+        return settings.reports
+
+    @provide(scope=Scope.APP)
+    def get_protection_retry_config(self, settings: Settings) -> ProtectionRetryConfig:
+        return settings.protection_retry
 
 
 class PostgresProvider(Provider):
@@ -141,6 +154,23 @@ class ServiceProvider(Provider):
     ) -> EventViewCollector:
         # живёт всё приложение: своя очередь и фоновый воркер, стартует в lifespan
         return EventViewCollector(postgres=postgres, config=config)
+
+    @provide(scope=Scope.APP)
+    def get_event_report_builder(self, config: ReportConfig) -> EventReportBuilder:
+        return EventReportBuilder(config=config)
+
+    @provide(scope=Scope.REQUEST)
+    def get_expired_booking_cleaner(self, db: DatabaseManager) -> ExpiredBookingCleaner:
+        return ExpiredBookingCleaner(db=db)
+
+    @provide(scope=Scope.REQUEST)
+    def get_protection_recalculator(
+        self,
+        db: DatabaseManager,
+        protection: ProtectionConnector,
+        config: ProtectionRetryConfig,
+    ) -> ProtectionRecalculator:
+        return ProtectionRecalculator(db=db, protection=protection, config=config)
 
     @provide(scope=Scope.REQUEST)
     def get_catalog_service(self, db: DatabaseManager) -> CatalogService:

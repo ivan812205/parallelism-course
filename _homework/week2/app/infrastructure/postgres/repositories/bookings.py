@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 
 from app.application.dto import BookingData
 from app.domain.enums import BookingStatus
@@ -53,6 +53,31 @@ class BookingRepo(BaseRepo):
             .where(Booking.id == booking_id)
             .values(status=BookingStatus.paid, with_protection=with_protection)
         )
+
+    async def set_protection_price(self, booking_id: int, protection_price: int) -> bool:
+        """Пишет цену страховки только той брони, которая всё ещё ждёт оплаты."""
+        result = await self.session.execute(
+            update(Booking)
+            .where(
+                Booking.id == booking_id,
+                Booking.status == BookingStatus.pending_payment,
+            )
+            .values(protection_price=protection_price)
+        )
+        return result.rowcount == 1
+
+    async def list_expired(self, now: datetime) -> list[int]:
+        """Неоплаченные брони, у которых истёк срок резерва."""
+        result = await self.session.scalars(
+            select(Booking.id).where(
+                Booking.status == BookingStatus.pending_payment,
+                Booking.reserved_until < now,
+            )
+        )
+        return list(result.all())
+
+    async def delete(self, booking_ids: list[int]) -> None:
+        await self.session.execute(delete(Booking).where(Booking.id.in_(booking_ids)))
 
     async def paid_aggregate(self, event_id: int) -> tuple[int, int]:
         """(кол-во оплаченных броней, выручка) по мероприятию."""
