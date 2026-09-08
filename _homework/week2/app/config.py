@@ -35,6 +35,29 @@ class BookingConfig(BaseModel):
     ttl_minutes: int = 15
 
 
+class EventCacheConfig(BaseModel):
+    ttl_seconds: int = 60
+    # jitter: разброс TTL, чтобы ключи популярных мероприятий не протухали разом
+    ttl_jitter_seconds: int = 15
+
+
+class EventLockConfig(BaseModel):
+    # блокировку держит только загрузчик, TTL страхует от упавшего процесса
+    ttl_seconds: float = 5.0
+    # бюджет ожидания для тех, кто блокировку не получил
+    wait_timeout_seconds: float = 3.0
+    poll_interval_seconds: float = 0.05
+
+
+class EventViewConfig(BaseModel):
+    # просмотр мероприятия с одного IP считается не чаще раза в 5 минут
+    dedup_ttl_seconds: int = 300
+    # сброс агрегатов в базу: по числу просмотров либо по таймеру
+    flush_every_events: int = 10
+    flush_interval_seconds: float = 5.0
+    queue_maxsize: int = 10_000
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
@@ -48,3 +71,6 @@ class Settings(BaseSettings):
     payment: PaymentApiConfig = Field(default_factory=PaymentApiConfig)
     protection: ProtectionApiConfig = Field(default_factory=ProtectionApiConfig)
     booking: BookingConfig = Field(default_factory=BookingConfig)
+    event_cache: EventCacheConfig = Field(default_factory=EventCacheConfig)
+    event_lock: EventLockConfig = Field(default_factory=EventLockConfig)
+    event_views: EventViewConfig = Field(default_factory=EventViewConfig)

@@ -1,8 +1,16 @@
+import logging
+
 import uvicorn
 
 from app.api.app import create_fastapi_app
 from app.config import Settings
 from app.ioc import create_container
+
+# без настройки логи приложения не видны: uvicorn настраивает только свои логгеры
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 settings = Settings()
 container = create_container(settings)

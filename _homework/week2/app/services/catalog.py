@@ -35,12 +35,6 @@ class CatalogService:
     async def list_events(self) -> list[EventData]:
         return await self._db.events.list_all()
 
-    async def get_event(self, event_id: int) -> EventData:
-        event = await self._db.events.get(event_id)
-        if event is None:
-            raise EventNotFoundError
-        return event
-
     async def list_event_seats(self, event_id: int) -> list[EventSeatData]:
         event = await self._db.events.get(event_id)
         if event is None:

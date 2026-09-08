@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app.add_event_data import seed_event_data
 from app.infrastructure.postgres.manager import PostgresClient
+from app.services.event_view_collector import EventViewCollector
 
 
 def create_lifespan(container: AsyncContainer):
@@ -13,6 +14,13 @@ def create_lifespan(container: AsyncContainer):
         postgres = await container.get(PostgresClient)
         async with postgres.session() as db:
             await seed_event_data(db.session)
-        yield
+
+        collector = await container.get(EventViewCollector)
+        await collector.start()
+        try:
+            yield
+        finally:
+            # остаток агрегатов уходит в базу до закрытия пула соединений
+            await collector.stop()
 
     return lifespan

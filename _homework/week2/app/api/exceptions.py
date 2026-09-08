@@ -6,6 +6,7 @@ from app.domain.exceptions import (
     BookingNotPayableError,
     DomainError,
     EventNotFoundError,
+    EventUnavailableError,
     LocationNotFoundError,
     PaymentUnavailableError,
     SeatsNotFoundError,
@@ -14,6 +15,10 @@ from app.domain.exceptions import (
 
 DOMAIN_ERROR_RESPONSES: dict[type[DomainError], tuple[int, str]] = {
     EventNotFoundError: (status.HTTP_404_NOT_FOUND, "Мероприятие не найдено"),
+    EventUnavailableError: (
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "Мероприятие временно недоступно, попробуйте позже",
+    ),
     LocationNotFoundError: (status.HTTP_404_NOT_FOUND, "Площадка не найдена"),
     BookingNotFoundError: (status.HTTP_404_NOT_FOUND, "Бронь не найдена"),
     SeatsNotFoundError: (status.HTTP_404_NOT_FOUND, "Некоторые места не найдены"),
