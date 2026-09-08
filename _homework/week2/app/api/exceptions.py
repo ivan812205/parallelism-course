@@ -39,4 +39,6 @@ def _response_for(exc: DomainError) -> tuple[int, str]:
     for error_type, response in DOMAIN_ERROR_RESPONSES.items():
         if isinstance(exc, error_type):
             return response
-    return status.HTTP_400_BAD_REQUEST, "Ошибка запроса"
+    # неизвестная доменная ошибка — это дефект бэкенда, а не плохой запрос клиента
+    # (замечание ревью ДЗ 2: 400 говорит клиенту «данные невалидны», что тут неверно)
+    return status.HTTP_500_INTERNAL_SERVER_ERROR, "Внутренняя ошибка сервиса"
