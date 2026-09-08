@@ -65,8 +65,18 @@ class CorsConfig(BaseModel):
         default_factory=lambda: [
             "http://localhost:5173",
             "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
         ],
     )
+
+
+class ProfilingConfig(BaseModel):
+    enabled: bool = True
+    pyinstrument_enabled: bool = True
+    interval: float = 0.001
+    output_directory: str = "profiles/pyinstrument"
+    public_path: str = "/__profiles"
 
 
 class AddressApiConfig(BaseModel):
@@ -94,6 +104,15 @@ class ConnectorsConfig(BaseModel):
     delivery: DeliveryApiConfig
 
 
+class ReportsConfig(BaseModel):
+    directory: str = "reports"
+
+
+class KafkaConfig(BaseModel):
+    bootstrap_servers: str = "localhost:9092"
+    tracking_topic: str = "delivery.tracking"
+
+
 class Settings(BaseSettings):
     app: AppConfig
     postgres: PostgresConfig
@@ -101,7 +120,10 @@ class Settings(BaseSettings):
     clickhouse: ClickHouseConfig
     token: TokenConfig
     cors: CorsConfig = Field(default_factory=CorsConfig)
+    profiling: ProfilingConfig = Field(default_factory=ProfilingConfig)
     connectors: ConnectorsConfig
+    reports: ReportsConfig = Field(default_factory=ReportsConfig)
+    kafka: KafkaConfig = Field(default_factory=KafkaConfig)
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -24,6 +24,10 @@ from samokat.application.dto import (
     PreorderCartItemData,
     UserAddressData,
 )
+from samokat.services.profiling import line_profile_async
+
+
+# from samokat.services.profiling import line_profile_async
 
 
 class OrderService:
@@ -88,24 +92,39 @@ class OrderService:
             delivery_id=delivery.delivery_id,
         )
 
+    @line_profile_async()
     async def preview_order(
         self,
         user_id: int,
     ) -> OrderPreviewData:
         async with asyncio.TaskGroup() as tg:
-            task_user_address = tg.create_task(self._get_active_user_address(user_id))
-            task_cart_items = tg.create_task(self._get_cart_items(user_id))
+            task_user_address = tg.create_task(
+                self._get_active_user_address(user_id),
+                name="get_active_user_address",
+            )
+            task_cart_items = tg.create_task(
+                self._get_cart_items(user_id),
+                name="get_cart_items",
+            )
 
         user_address = task_user_address.result()
         cart_items = task_cart_items.result()
 
+        _ = [i**i for i in range(3001)]
+
         async with asyncio.TaskGroup() as tg:
-            reservation_task = tg.create_task(self._reserve_cart_items(cart_items))
-            delivery_price_task = tg.create_task(self.delivery_connector.get_delivery_price(
-                address=user_address.address_text,
-                lat=user_address.lat,
-                lon=user_address.lon,
-            ))
+            reservation_task = tg.create_task(
+                self._reserve_cart_items(cart_items),
+                name="reserve_cart_items",
+            )
+            delivery_price_task = tg.create_task(
+                self.delivery_connector.get_delivery_price(
+                    address=user_address.address_text,
+                    lat=user_address.lat,
+                    lon=user_address.lon,
+                ),
+                name="get_delivery_price",
+            )
 
         reservation = reservation_task.result()
         delivery_price = delivery_price_task.result()

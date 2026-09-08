@@ -91,8 +91,8 @@ services:
           $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --list >/dev/null 2>&1 && break
           sleep 2
         done
-        $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --create --if-not-exists --topic delivery.status_events --partitions 3 --replication-factor 1
-        $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --create --if-not-exists --topic courier.locations --partitions 3 --replication-factor 1
+        $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --create --if-not-exists --topic delivery.tracking --partitions 2 --replication-factor 1
+        $$KAFKA_TOPICS --bootstrap-server samokat-kafka:29092 --alter --topic delivery.tracking --partitions 2 || true
 
   address-api:
     build:
@@ -157,9 +157,104 @@ services:
       CONNECTORS__DELIVERY__BASE_URL: http://delivery-api:8000
       CONNECTORS__DELIVERY__API_KEY: dl-L4pZ9cV2mH8qT6rN3xW7
       CONNECTORS__DELIVERY__TIMEOUT: 5
+      KAFKA__BOOTSTRAP_SERVERS: samokat-kafka:29092
+      KAFKA__TRACKING_TOPIC: delivery.tracking
     depends_on:
       samokat-postgres:
         condition: service_healthy
+
+  samokat-celery-worker:
+    build:
+      context: ./samokat
+    command: celery -A samokat.infrastructure.tasks.celery_app:celery_app worker --loglevel=info
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+      darkstore-api:
+        condition: service_started
+
+  samokat-celery-beat:
+    build:
+      context: ./samokat
+    command: celery -A samokat.infrastructure.tasks.celery_app:celery_app beat --loglevel=info
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+
+  samokat-flower:
+    build:
+      context: ./samokat
+    command: celery -A samokat.infrastructure.tasks.celery_app:celery_app flower --port=5555
+    environment:
+      <<: *samokat_env
+    ports:
+      - "5555:5555"
+    depends_on:
+      samokat-redis:
+        condition: service_started
+
+  samokat-taskiq-admin:
+    image: ghcr.io/taskiq-python/taskiq-admin:latest
+    ports:
+      - "3000:3000"
+    environment:
+      TASKIQ_ADMIN_API_TOKEN: supersecret
+    volumes:
+      - samokat_taskiq_admin_data:/usr/database/
+
+  samokat-taskiq-async-worker:
+    build:
+      context: ./samokat
+    command: taskiq worker samokat.infrastructure.tasks.taskiq_app:broker_async samokat.infrastructure.tasks.taskiq_tasks
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+      darkstore-api:
+        condition: service_started
+      samokat-taskiq-admin:
+        condition: service_started
+
+  samokat-taskiq-cpu-worker:
+    build:
+      context: ./samokat
+    command: taskiq worker samokat.infrastructure.tasks.taskiq_app:broker_cpu samokat.infrastructure.tasks.taskiq_tasks
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+      samokat-taskiq-admin:
+        condition: service_started
+
+  samokat-taskiq-scheduler:
+    build:
+      context: ./samokat
+    command: taskiq scheduler samokat.infrastructure.tasks.taskiq_app:scheduler samokat.infrastructure.tasks.taskiq_tasks
+    environment:
+      <<: *samokat_env
+    depends_on:
+      samokat-migrations:
+        condition: service_completed_successfully
+      samokat-redis:
+        condition: service_started
+      darkstore-api:
+        condition: service_started
+      samokat-taskiq-admin:
+        condition: service_started
 
   samokat-frontend:
    build:
@@ -194,3 +289,4 @@ volumes:
   samokat_postgres_data:
   samokat_clickhouse_data:
   samokat_kafka_data:
+  samokat_taskiq_admin_data:

@@ -1,7 +1,28 @@
 import asyncio
+import logging
 import random
+import time
 
 import httpx
+
+logger = logging.getLogger("samokat.httpx")
+
+
+async def on_request(request: httpx.Request) -> None:
+    request.extensions["started_at"] = time.perf_counter()
+
+
+async def on_response(response: httpx.Response) -> None:
+    started_at = response.request.extensions.get("started_at")
+    duration = time.perf_counter() - started_at if started_at is not None else 0
+
+    logger.info(
+        "HTTP request completed: method=%s url=%s status=%s duration=%.3fs",
+        response.request.method,
+        response.request.url,
+        response.status_code,
+        duration,
+    )
 
 
 class BaseHTTPConnector:
@@ -14,7 +35,15 @@ class BaseHTTPConnector:
         rate_limit_interval: int | None = None,
         retry_count: int = 2,
     ) -> None:
-        self._client = httpx.AsyncClient(base_url=base_url, headers=headers, timeout=timeout)
+        self._client = httpx.AsyncClient(
+            base_url=base_url,
+            headers=headers,
+            timeout=timeout,
+            event_hooks={
+                "request": [on_request],
+                "response": [on_response],
+            },
+        )
         self.rate_limit_requests = rate_limit_requests
         if rate_limit_requests:
             self._rate_limiter = asyncio.Semaphore(rate_limit_requests)
@@ -46,7 +75,10 @@ class BaseHTTPConnector:
         for attempt in range(attempts):
             if self.rate_limit_requests:
                 await self._rate_limiter.acquire()
-                _ = asyncio.create_task(self.release_rate_limiter_later())
+                _ = asyncio.create_task(  # noqa: RUF006
+                    self.release_rate_limiter_later(),
+                    name="samokat.http.rate_limiter.release",
+                )
 
             try:
                 response = await self._client.request(method, url, **kwargs)

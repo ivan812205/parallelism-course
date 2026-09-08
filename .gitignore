@@ -17,10 +17,23 @@ wheels/
 # Frontend generated files
 _frontend/**/dist/
 _frontend/**/node_modules/
+_frontend/**/.npm-cache/
+_frontend/**/.pnpm-store/
+_frontend/**/.yarn/
+_frontend/**/.vite/
+_frontend/**/.turbo/
+_frontend/**/.parcel-cache/
 
-# Local delivery analytics project
-delivery_analytics/
+# Celery runtime files
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat-schedule*
+samokat/celerybeat-schedule
+samokat/celerybeat-schedule.*
+samokat/celerybeat-schedule*
+celerybeat.pid
+celeryd.pid
+celery*.log
 
-# Local compose files
-docker-compose.full.yaml
-docker-compose.delivery_analytics.yaml
+# Generated reports
+samokat/reports/

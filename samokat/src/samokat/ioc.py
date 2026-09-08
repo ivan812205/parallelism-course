@@ -3,11 +3,14 @@ from collections.abc import AsyncIterator
 from dishka import Provider, Scope, make_async_container, provide
 from dishka.integrations.fastapi import FastapiProvider
 from argon2 import PasswordHasher
+from faststream.kafka import KafkaBroker
 
 from samokat.config import (
     ClickHouseConfig,
     ConnectorsConfig,
+    KafkaConfig,
     PostgresConfig,
+    ReportsConfig,
     RedisConfig,
     Settings,
     TokenConfig,
@@ -19,6 +22,7 @@ from samokat.infrastructure.api_connectors.internal.darkstore import (
     DarkstoreConnector,
 )
 from samokat.infrastructure.api_connectors.internal.delivery import DeliveryConnector
+from samokat.infrastructure.cache.local import InMemoryCache
 from samokat.infrastructure.clickhouse.manager import (
     ClickHouseManager,
     create_clickhouse_manager,
@@ -29,6 +33,8 @@ from samokat.infrastructure.postgres.manager import DatabaseManager, PostgresCli
 from samokat.infrastructure.redis.darkstore_products import DarkstoreProductsCache
 from samokat.infrastructure.redis.manager import RedisManager, create_redis_manager
 from samokat.infrastructure.redis.product_card_cache import ProductCache
+from samokat.infrastructure.reports.excel import OrdersReportExcelWriter
+from samokat.infrastructure.tasks.publisher import TaskPublisher
 from samokat.security.password_hasher import PasswordHasherManager
 from samokat.security.security_manager import SecurityManager
 from samokat.security.token_processor import TokenProcessor
@@ -36,8 +42,12 @@ from samokat.services.addresses import AddressService
 from samokat.services.auth import AuthService
 from samokat.services.cart import CartService
 from samokat.services.darkstore_sync import DarkstoreSyncService
+from samokat.services._delivery_tracking_simulation import (
+    DeliveryTrackingSimulationService,
+)
 from samokat.services.orders import OrderService
 from samokat.services.product import ProductService
+from samokat.services.reports import ReportService
 from samokat.services.users import UserService
 
 
@@ -69,6 +79,14 @@ class ConfigProvider(Provider):
     @provide(scope=Scope.APP)
     def get_connectors_config(self, settings: Settings) -> ConnectorsConfig:
         return settings.connectors
+
+    @provide(scope=Scope.APP)
+    def get_reports_config(self, settings: Settings) -> ReportsConfig:
+        return settings.reports
+
+    @provide(scope=Scope.APP)
+    def get_kafka_config(self, settings: Settings) -> KafkaConfig:
+        return settings.kafka
 
 
 class PostgresProvider(Provider):
@@ -177,6 +195,12 @@ class ConnectorProvider(Provider):
 
 class CacheProvider(Provider):
     @provide(scope=Scope.APP)
+    def get_inmemory_cache(
+        self,
+    ) -> InMemoryCache:
+        return InMemoryCache()
+
+    @provide(scope=Scope.APP)
     def get_product_cache(
         self,
         redis: RedisManager,
@@ -224,7 +248,47 @@ class ClickhouseEventQueueProvider(Provider):
         return ClickhouseEventQueue(ch_client)
 
 
+class ReportWriterProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_orders_report_excel_writer(
+        self,
+        config: ReportsConfig,
+    ) -> OrdersReportExcelWriter:
+        return OrdersReportExcelWriter(config)
+
+
+class TaskPublisherProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_task_publisher(
+        self,
+    ) -> TaskPublisher:
+        return TaskPublisher()
+
+
+class KafkaProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_kafka_broker(
+        self,
+        config: KafkaConfig,
+    ) -> KafkaBroker:
+        return KafkaBroker(
+            bootstrap_servers=config.bootstrap_servers,
+            linger_ms=50,
+        )
+
+
 class ServiceProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_delivery_tracking_simulation_service(
+        self,
+        broker: KafkaBroker,
+        config: KafkaConfig,
+    ) -> DeliveryTrackingSimulationService:
+        return DeliveryTrackingSimulationService(
+            broker=broker,
+            config=config,
+        )
+
     @provide(scope=Scope.REQUEST)
     def get_user_service(
         self,
@@ -276,12 +340,14 @@ class ServiceProvider(Provider):
         product_cache: ProductCache,
         darkstore_products_cache: DarkstoreProductsCache,
         singleflight: SingleFlight,
+        local_cache: InMemoryCache,
     ) -> ProductService:
         return ProductService(
             db=db,
             product_cache=product_cache,
             darkstore_products_cache=darkstore_products_cache,
             singleflight=singleflight,
+            local_cache=local_cache,
         )
 
     @provide(scope=Scope.REQUEST)
@@ -310,6 +376,19 @@ class ServiceProvider(Provider):
             darkstore_products_cache=darkstore_products_cache,
         )
 
+    @provide(scope=Scope.REQUEST)
+    def get_report_service(
+        self,
+        db: DatabaseManager,
+        excel_writer: OrdersReportExcelWriter,
+        task_publisher: TaskPublisher,
+    ) -> ReportService:
+        return ReportService(
+            db=db,
+            excel_writer=excel_writer,
+            task_publisher=task_publisher,
+        )
+
 
 def create_container(settings: Settings):
     return make_async_container(
@@ -321,7 +400,10 @@ def create_container(settings: Settings):
         CacheProvider(),
         SingleFlightProvider(),
         ClickhouseEventQueueProvider(),
+        ReportWriterProvider(),
+        TaskPublisherProvider(),
         SecurityProvider(),
         ServiceProvider(),
+        KafkaProvider(),
         FastapiProvider(),
     )

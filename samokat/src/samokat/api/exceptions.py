@@ -46,7 +46,7 @@ DOMAIN_ERROR_RESPONSES: dict[type[DomainError], tuple[int, str]] = {
 
 def setup_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
-    async def domain_exception_handler(
+    async def domain_exception_handler(  # noqa: RUF029
         _: Request,
         exc: DomainError,
     ) -> JSONResponse:
