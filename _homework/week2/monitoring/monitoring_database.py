@@ -11,7 +11,11 @@ class MonitoringDatabase:
     """Хранилище агрегатов активности оплат."""
 
     def __init__(self, config: PostgresConfig) -> None:
-        self._engine = create_async_engine(config.url, pool_pre_ping=True)
+        self._engine = create_async_engine(
+            config.url,
+            pool_pre_ping=True,
+            connect_args={"prepare_threshold": config.prepare_threshold},
+        )
         self._session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
 
     async def save_activity(

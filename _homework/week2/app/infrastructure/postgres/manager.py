@@ -25,6 +25,7 @@ class PostgresClient:
             pool_size=config.pool_size,
             max_overflow=config.max_overflow,
             pool_timeout=config.pool_timeout_seconds,
+            connect_args={"prepare_threshold": config.prepare_threshold},
         )
         # expire_on_commit=False — атрибуты живут после commit (нужно при сборке ответа)
         self._session_maker = async_sessionmaker(self._engine, expire_on_commit=False)

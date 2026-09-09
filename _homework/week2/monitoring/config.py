@@ -9,8 +9,11 @@ class AppConfig(BaseModel):
 
 
 class PostgresConfig(BaseModel):
-    # база общая с «Афишей», но таблица у мониторинга своя
-    url: str = "postgresql+psycopg://postgres:postgres@localhost:7432/postgres"
+    # база общая с «Афишей», но таблица у мониторинга своя;
+    # подключение идёт через pgbouncer (порт 6432)
+    url: str = "postgresql+psycopg://postgres:postgres@localhost:6432/postgres"
+    # transaction-режим pgbouncer не переживает серверные подготовленные запросы
+    prepare_threshold: int | None = None
 
 
 class KafkaConfig(BaseModel):

@@ -8,12 +8,30 @@ docker compose up -d db payment-api protection-api
 
 ## Запуск (ДЗ 3-5)
 
-Инфраструктура — база, Redis, моки внешних API, Kafka с топиком `tickets.purchased`:
+Инфраструктура — база, pgbouncer, Redis, моки внешних API, Kafka с топиком
+`tickets.purchased`:
 
 ```bash
-docker compose up -d db redis payment-api protection-api kafka kafka-init
+docker compose up -d db pgbouncer redis payment-api protection-api kafka kafka-init
 uv run alembic upgrade head
 ```
+
+Приложения ходят в базу не напрямую, а через pgbouncer на порт `6432` (сама база
+слушает `7432` и нужна для psql и разбора). Пулер работает в режиме transaction:
+реальное соединение отдаётся клиенту на одну транзакцию, поэтому сотни клиентских
+соединений живут на 25 серверных. Из-за этого режима серверные подготовленные
+запросы выключены (`prepare_threshold=None` у psycopg) — иначе следующий клиент
+получит «prepared statement _pg3_0 already exists».
+
+Что происходит внутри пулера, видно в его служебной базе:
+
+```bash
+docker compose exec -e PGPASSWORD=postgres db \
+  psql -h pgbouncer -p 6432 -U postgres -d pgbouncer -c "SHOW POOLS"
+```
+
+`cl_active` — сколько клиентов работают, `cl_waiting` — сколько ждут соединения,
+`sv_active` — сколько реальных соединений занято в базе.
 
 Приложение и фоновые воркеры taskiq (каждая очередь — свой процесс):
 

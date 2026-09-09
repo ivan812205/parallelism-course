@@ -1,10 +1,8 @@
 services:
   db:
     image: postgres:17-alpine
-    # 100 соединений по умолчанию делят между собой все процессы: воркеры uvicorn,
-    # воркеры taskiq и сервис мониторинга. В ДЗ 6 четыре воркера приложения упирались
-    # в «too many clients already» — в продакшене тут был бы пулер вроде pgbouncer.
-    command: ["postgres", "-c", "max_connections=300"]
+    # Лимит соединений остаётся стандартным: приложения ходят в базу через pgbouncer,
+    # который держит десятки реальных соединений вместо сотен клиентских.
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
@@ -18,6 +16,33 @@ services:
       retries: 10
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: postgres
+      # образ по умолчанию слушает 5432, ставим привычный порт пулера
+      LISTEN_PORT: "6432"
+      # transaction: реальное соединение отдаётся клиенту на одну транзакцию,
+      # поэтому сотни клиентских соединений живут на десятках серверных
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "500"
+      # серверный пул — новый регулятор: 25 реальных соединений держат сотню
+      # клиентских. Замер ДЗ 6: подъём до 50 пропускной способности не добавил,
+      # потому что упор в CPU самой базы, а не в число соединений
+      DEFAULT_POOL_SIZE: "25"
+      AUTH_TYPE: scram-sha-256
+      # доступ к служебной базе pgbouncer: SHOW POOLS, SHOW STATS
+      ADMIN_USERS: postgres
+    ports:
+      - "6432:6432"
+    depends_on:
+      db:
+        condition: service_healthy
 
   payment-api:
     build: ./mock_apis/payment

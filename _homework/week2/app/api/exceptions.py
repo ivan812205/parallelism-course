@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from redis.exceptions import RedisError
-from sqlalchemy.exc import TimeoutError as PoolTimeoutError
+from sqlalchemy.exc import OperationalError, TimeoutError as PoolTimeoutError
 
 from app.domain.exceptions import (
     BookingNotFoundError,
@@ -46,6 +46,18 @@ def setup_exception_handlers(app: FastAPI) -> None:
     async def handle_pool_timeout(request: Request, exc: PoolTimeoutError) -> JSONResponse:
         # пул соединений к базе исчерпан: это перегрузка, а не ошибка клиента (найдено в ДЗ 6)
         logger.warning("Пул соединений к PostgreSQL исчерпан на %s: %s", request.url.path, exc)
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": OVERLOAD_MESSAGE},
+        )
+
+    @app.exception_handler(OperationalError)
+    async def handle_database_unavailable(
+        request: Request, exc: OperationalError
+    ) -> JSONResponse:
+        # база не отдала соединение (например «too many clients already»):
+        # для клиента это недоступность сервиса, а не его ошибка
+        logger.warning("PostgreSQL не отдал соединение на %s: %s", request.url.path, exc)
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"detail": OVERLOAD_MESSAGE},
