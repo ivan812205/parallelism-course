@@ -31,6 +31,18 @@ uv run taskiq scheduler app.tasks.scheduler:scheduler       # расписани
 оформления: пользователь ждать не должен, а фон может, например
 `PROTECTION__TIMEOUT=8 uv run taskiq worker app.tasks.worker:external_broker`.
 
+Под нагрузкой приложение запускается несколькими процессами — по замеру ДЗ 6
+четыре воркера дают 2200 запросов/с против 905 у одного:
+
+```bash
+PURCHASE_GENERATOR__ENABLED=false uv run uvicorn app.main:app --workers 4
+```
+
+Генератор покупок живёт в lifespan, поэтому без этого флага он поднимется в каждом
+воркере и поток событий в Kafka умножится на число процессов. Сумма пулов тоже
+считается на все процессы: воркеры × (`pool_size` + `max_overflow`) должно оставаться
+меньше `max_connections` базы.
+
 ## Сервис мониторинга покупок (ДЗ 5)
 
 Второе приложение читает события `tickets.purchased` из Kafka батчами, агрегирует их

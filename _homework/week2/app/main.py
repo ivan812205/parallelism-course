@@ -23,4 +23,7 @@ if __name__ == "__main__":
         host=settings.app.host,
         port=settings.app.port,
         reload=settings.app.reload,
+        # генератор покупок живёт в lifespan, поэтому в каждом воркере поднимется
+        # свой: для многопроцессного запуска его выключают PURCHASE_GENERATOR__ENABLED
+        workers=None if settings.app.reload else settings.app.workers,
     )
