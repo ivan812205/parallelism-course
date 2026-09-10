@@ -1,4 +1,7 @@
-from collections.abc import AsyncIterator
+import sys
+from collections.abc import AsyncIterator, Iterator
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
 
 from dishka import Provider, Scope, make_async_container, provide
 from dishka.integrations.fastapi import FastapiProvider
@@ -19,13 +22,15 @@ from app.config import (
     ReportConfig,
     Settings,
 )
+from app.application.ports import EventReportScheduler, ProtectionRecalculationScheduler
 from app.infrastructure.api_connectors.payment import PaymentConnector
 from app.infrastructure.api_connectors.protection import ProtectionConnector
 from app.infrastructure.kafka.purchase_event_publisher import PurchaseEventPublisher
 from app.infrastructure.postgres.manager import DatabaseManager, PostgresClient
 from app.infrastructure.redis.event_cache import EventCache
 from app.infrastructure.redis.event_view_deduplicator import EventViewDeduplicator
-from app.infrastructure.redis.redis_lock import RedisLock
+from app.infrastructure.taskiq.protection_task_scheduler import ProtectionTaskScheduler
+from app.infrastructure.taskiq.report_task_scheduler import ReportTaskScheduler
 from app.services.catalog import CatalogService
 from app.services.checkout import CheckoutService
 from app.services.dashboard import DashboardService
@@ -132,10 +137,6 @@ class RedisProvider(Provider):
         return EventCache(redis=redis, config=config)
 
     @provide(scope=Scope.APP)
-    def get_event_lock(self, redis: Redis, config: EventLockConfig) -> RedisLock:
-        return RedisLock(redis=redis, config=config)
-
-    @provide(scope=Scope.APP)
     def get_event_view_deduplicator(
         self, redis: Redis, config: EventViewConfig
     ) -> EventViewDeduplicator:
@@ -177,8 +178,33 @@ class ServiceProvider(Provider):
         return EventViewCollector(postgres=postgres, config=config)
 
     @provide(scope=Scope.APP)
-    def get_event_report_builder(self, config: ReportConfig) -> EventReportBuilder:
-        return EventReportBuilder(config=config)
+    def get_report_executor(self, config: ReportConfig) -> Iterator[ProcessPoolExecutor]:
+        # Генерация PDF считает на Python и держит GIL: уносим её из процесса воркера.
+        # Пул поднимает процессы через spawn, а дочерний интерпретатор копирует sys.path
+        # родителя (PYTHONPATH на него уже не влияет). taskiq запускает воркер консольной
+        # командой, корня проекта в пути нет — без этой строки ребёнок не найдёт `app`
+        # и сломается на распаковке аргументов задачи.
+        project_root = str(Path(__file__).resolve().parents[1])
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        with ProcessPoolExecutor(max_workers=config.process_workers) as executor:
+            yield executor
+
+    @provide(scope=Scope.APP)
+    def get_event_report_builder(
+        self,
+        config: ReportConfig,
+        executor: ProcessPoolExecutor,
+    ) -> EventReportBuilder:
+        return EventReportBuilder(config=config, executor=executor)
+
+    @provide(scope=Scope.APP)
+    def get_report_scheduler(self) -> EventReportScheduler:
+        return ReportTaskScheduler()
+
+    @provide(scope=Scope.APP)
+    def get_protection_scheduler(self) -> ProtectionRecalculationScheduler:
+        return ProtectionTaskScheduler()
 
     @provide(scope=Scope.APP)
     def get_purchase_event_publisher(self, config: KafkaConfig) -> PurchaseEventPublisher:
@@ -215,10 +241,10 @@ class ServiceProvider(Provider):
         self,
         db: DatabaseManager,
         cache: EventCache,
-        lock: RedisLock,
+        redis: Redis,
         config: EventLockConfig,
     ) -> EventReader:
-        return EventReader(db=db, cache=cache, lock=lock, config=config)
+        return EventReader(db=db, cache=cache, redis=redis, config=config)
 
     @provide(scope=Scope.REQUEST)
     def get_event_view_tracker(
@@ -238,18 +264,24 @@ class ServiceProvider(Provider):
         db: DatabaseManager,
         payment: PaymentConnector,
         protection: ProtectionConnector,
+        protection_scheduler: ProtectionRecalculationScheduler,
         booking_config: BookingConfig,
     ) -> CheckoutService:
         return CheckoutService(
             db=db,
             payment=payment,
             protection=protection,
+            protection_scheduler=protection_scheduler,
             config=booking_config,
         )
 
     @provide(scope=Scope.REQUEST)
-    def get_dashboard_service(self, db: DatabaseManager) -> DashboardService:
-        return DashboardService(db=db)
+    def get_dashboard_service(
+        self,
+        db: DatabaseManager,
+        reports: EventReportScheduler,
+    ) -> DashboardService:
+        return DashboardService(db=db, reports=reports)
 
     @provide(scope=Scope.REQUEST)
     def get_payment_service(

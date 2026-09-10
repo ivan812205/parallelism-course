@@ -88,6 +88,9 @@ class TaskiqConfig(BaseModel):
 class ReportConfig(BaseModel):
     # на проде тут было бы S3, локально — каталог рядом с приложением
     directory: str = "reports"
+    # генерация PDF уезжает в отдельные процессы: reportlab считает на Python
+    # и GIL не отпускает, поэтому поток параллелизма не дал бы
+    process_workers: int = 2
 
 
 class ProtectionRetryConfig(BaseModel):
