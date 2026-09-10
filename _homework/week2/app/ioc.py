@@ -2,20 +2,30 @@ from collections.abc import AsyncIterator
 
 from dishka import Provider, Scope, make_async_container, provide
 from dishka.integrations.fastapi import FastapiProvider
+from redis.asyncio import Redis
 
 from app.config import (
     BookingConfig,
+    EventCacheConfig,
+    EventLockConfig,
+    EventViewConfig,
     PaymentApiConfig,
     PostgresConfig,
     ProtectionApiConfig,
+    RedisConfig,
     Settings,
 )
 from app.infrastructure.api_connectors.payment import PaymentConnector
 from app.infrastructure.api_connectors.protection import ProtectionConnector
 from app.infrastructure.postgres.manager import DatabaseManager, PostgresClient
+from app.infrastructure.redis.event_cache import EventCache
+from app.infrastructure.redis.event_view_deduplicator import EventViewDeduplicator
 from app.services.catalog import CatalogService
 from app.services.checkout import CheckoutService
 from app.services.dashboard import DashboardService
+from app.services.event_reader import EventReader
+from app.services.event_view_collector import EventViewCollector
+from app.services.event_view_tracker import EventViewTracker
 from app.services.organizer import OrganizerService
 from app.services.payment import PaymentService
 
@@ -34,6 +44,10 @@ class ConfigProvider(Provider):
         return settings.postgres
 
     @provide(scope=Scope.APP)
+    def get_redis_config(self, settings: Settings) -> RedisConfig:
+        return settings.redis
+
+    @provide(scope=Scope.APP)
     def get_payment_config(self, settings: Settings) -> PaymentApiConfig:
         return settings.payment
 
@@ -44,6 +58,18 @@ class ConfigProvider(Provider):
     @provide(scope=Scope.APP)
     def get_booking_config(self, settings: Settings) -> BookingConfig:
         return settings.booking
+
+    @provide(scope=Scope.APP)
+    def get_event_cache_config(self, settings: Settings) -> EventCacheConfig:
+        return settings.event_cache
+
+    @provide(scope=Scope.APP)
+    def get_event_lock_config(self, settings: Settings) -> EventLockConfig:
+        return settings.event_lock
+
+    @provide(scope=Scope.APP)
+    def get_event_view_config(self, settings: Settings) -> EventViewConfig:
+        return settings.event_views
 
 
 class PostgresProvider(Provider):
@@ -57,6 +83,24 @@ class PostgresProvider(Provider):
     async def get_db(self, postgres: PostgresClient) -> AsyncIterator[DatabaseManager]:
         async with postgres.session() as db:
             yield db
+
+
+class RedisProvider(Provider):
+    @provide(scope=Scope.APP)
+    async def get_redis(self, config: RedisConfig) -> AsyncIterator[Redis]:
+        redis = Redis.from_url(config.url, decode_responses=True)
+        yield redis
+        await redis.aclose()
+
+    @provide(scope=Scope.APP)
+    def get_event_cache(self, redis: Redis, config: EventCacheConfig) -> EventCache:
+        return EventCache(redis=redis, config=config)
+
+    @provide(scope=Scope.APP)
+    def get_event_view_deduplicator(
+        self, redis: Redis, config: EventViewConfig
+    ) -> EventViewDeduplicator:
+        return EventViewDeduplicator(redis=redis, config=config)
 
 
 class ConnectorProvider(Provider):
@@ -84,9 +128,36 @@ class ConnectorProvider(Provider):
 
 
 class ServiceProvider(Provider):
+    @provide(scope=Scope.APP)
+    def get_event_view_collector(
+        self,
+        postgres: PostgresClient,
+        config: EventViewConfig,
+    ) -> EventViewCollector:
+        # живёт всё приложение: своя очередь и фоновый воркер, стартует в lifespan
+        return EventViewCollector(postgres=postgres, config=config)
+
     @provide(scope=Scope.REQUEST)
     def get_catalog_service(self, db: DatabaseManager) -> CatalogService:
         return CatalogService(db=db)
+
+    @provide(scope=Scope.REQUEST)
+    def get_event_reader(
+        self,
+        db: DatabaseManager,
+        cache: EventCache,
+        redis: Redis,
+        config: EventLockConfig,
+    ) -> EventReader:
+        return EventReader(db=db, cache=cache, redis=redis, config=config)
+
+    @provide(scope=Scope.REQUEST)
+    def get_event_view_tracker(
+        self,
+        deduplicator: EventViewDeduplicator,
+        collector: EventViewCollector,
+    ) -> EventViewTracker:
+        return EventViewTracker(deduplicator=deduplicator, collector=collector)
 
     @provide(scope=Scope.REQUEST)
     def get_organizer_service(self, db: DatabaseManager) -> OrganizerService:
@@ -124,6 +195,7 @@ def create_container(settings: Settings):
     return make_async_container(
         ConfigProvider(settings),
         PostgresProvider(),
+        RedisProvider(),
         ConnectorProvider(),
         ServiceProvider(),
         FastapiProvider(),

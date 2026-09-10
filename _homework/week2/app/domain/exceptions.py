@@ -10,6 +10,11 @@ class EventNotFoundError(EventError):
     pass
 
 
+class EventUnavailableError(EventError):
+    """Мероприятие не прочитано: кэш пуст, а загрузку из базы держит другой процесс
+    дольше отведённого бюджета ожидания."""
+
+
 class LocationError(DomainError):
     pass
 

@@ -37,3 +37,4 @@ celery*.log
 
 # Generated reports
 samokat/reports/
+_homework/week2/reports/
