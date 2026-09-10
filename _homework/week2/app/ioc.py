@@ -22,7 +22,6 @@ from app.infrastructure.api_connectors.protection import ProtectionConnector
 from app.infrastructure.postgres.manager import DatabaseManager, PostgresClient
 from app.infrastructure.redis.event_cache import EventCache
 from app.infrastructure.redis.event_view_deduplicator import EventViewDeduplicator
-from app.infrastructure.redis.redis_lock import RedisLock
 from app.services.catalog import CatalogService
 from app.services.checkout import CheckoutService
 from app.services.dashboard import DashboardService
@@ -111,10 +110,6 @@ class RedisProvider(Provider):
         return EventCache(redis=redis, config=config)
 
     @provide(scope=Scope.APP)
-    def get_event_lock(self, redis: Redis, config: EventLockConfig) -> RedisLock:
-        return RedisLock(redis=redis, config=config)
-
-    @provide(scope=Scope.APP)
     def get_event_view_deduplicator(
         self, redis: Redis, config: EventViewConfig
     ) -> EventViewDeduplicator:
@@ -181,10 +176,10 @@ class ServiceProvider(Provider):
         self,
         db: DatabaseManager,
         cache: EventCache,
-        lock: RedisLock,
+        redis: Redis,
         config: EventLockConfig,
     ) -> EventReader:
-        return EventReader(db=db, cache=cache, lock=lock, config=config)
+        return EventReader(db=db, cache=cache, redis=redis, config=config)
 
     @provide(scope=Scope.REQUEST)
     def get_event_view_tracker(
