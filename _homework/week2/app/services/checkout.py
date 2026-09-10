@@ -8,6 +8,7 @@ from app.application.dto import (
     CheckoutResultData,
     CheckoutSeatData,
 )
+from app.application.ports import ProtectionRecalculationScheduler
 from app.config import BookingConfig
 from app.domain.enums import SeatStatus
 from app.domain.exceptions import (
@@ -29,11 +30,13 @@ class CheckoutService:
         db: DatabaseManager,
         payment: PaymentConnector,
         protection: ProtectionConnector,
+        protection_scheduler: ProtectionRecalculationScheduler,
         config: BookingConfig,
     ) -> None:
         self._db = db
         self._payment = payment
         self._protection = protection
+        self._protection_scheduler = protection_scheduler
         self._ttl_minutes = config.ttl_minutes
 
     async def checkout(
@@ -90,6 +93,11 @@ class CheckoutService:
             protection.price if protection else None,
         )
         await self._db.commit()
+
+        if protection is None:
+            # API страховки не ответил в отведённый таймаут: отдаём результат без неё,
+            # а расчёт дожимает фоновая задача
+            await self._protection_scheduler.schedule(booking_id)
 
         return CheckoutResultData(
             booking=CheckoutBookingData(
