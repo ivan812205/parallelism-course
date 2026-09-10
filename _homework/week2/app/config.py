@@ -79,6 +79,23 @@ class ProtectionRetryConfig(BaseModel):
     delay_seconds: float = 2.0
 
 
+class KafkaConfig(BaseModel):
+    bootstrap_servers: str = "localhost:9094"
+    purchases_topic: str = "tickets.purchased"
+    # продюсер копит сообщения этот интервал и отправляет их одним запросом
+    linger_ms: int = 75
+
+
+class PurchaseGeneratorConfig(BaseModel):
+    enabled: bool = True
+    # поток подобран так, чтобы консьюмер регулярно набирал полный батч (10 сообщений)
+    # и при затишье срабатывал по таймауту 500 мс
+    interval_seconds: float = 0.2
+    burst_size: int = 8
+    # узкий диапазон мероприятий: покупки регулярно попадают на одно и то же
+    max_event_id: int = 5
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
@@ -98,3 +115,7 @@ class Settings(BaseSettings):
     taskiq: TaskiqConfig = Field(default_factory=TaskiqConfig)
     reports: ReportConfig = Field(default_factory=ReportConfig)
     protection_retry: ProtectionRetryConfig = Field(default_factory=ProtectionRetryConfig)
+    kafka: KafkaConfig = Field(default_factory=KafkaConfig)
+    purchase_generator: PurchaseGeneratorConfig = Field(
+        default_factory=PurchaseGeneratorConfig
+    )

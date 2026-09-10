@@ -35,6 +35,38 @@ services:
       timeout: 3s
       retries: 10
 
+  kafka:
+    image: bitnamilegacy/kafka:3.7
+    environment:
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:29092,CONTROLLER://:9093,EXTERNAL://:9094"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,EXTERNAL://localhost:9094"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+    ports:
+      - "9094:9094"
+    volumes:
+      - kafka_data:/bitnami/kafka
+
+  kafka-init:
+    image: bitnamilegacy/kafka:3.7
+    depends_on:
+      - kafka
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        KAFKA_TOPICS=/opt/bitnami/kafka/bin/kafka-topics.sh
+        for i in {1..30}; do
+          $$KAFKA_TOPICS --bootstrap-server kafka:29092 --list >/dev/null 2>&1 && break
+          sleep 2
+        done
+        $$KAFKA_TOPICS --bootstrap-server kafka:29092 --create --if-not-exists --topic tickets.purchased --partitions 2 --replication-factor 1
+
   # app запускаем локально: сначала `uv run alembic upgrade head`
   # потом `uv run uvicorn app.main:app --reload`
   # app:
@@ -55,3 +87,4 @@ services:
 
 volumes:
   postgres_data:
+  kafka_data:

@@ -176,3 +176,16 @@ class PaymentResultData(BaseModel):
     status: BookingStatus
     charged_amount: int
     transaction_id: str
+
+
+# --- события для брокера ---
+class PurchaseEventData(BaseModel):
+    """Факт покупки билетов: публикуется в топик `tickets.purchased`."""
+
+    model_config = _FROZEN
+
+    payment_id: str
+    event_id: int
+    tickets_count: int
+    total_amount: int
+    paid_at: datetime

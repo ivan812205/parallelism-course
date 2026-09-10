@@ -12,10 +12,12 @@ from app.config import (
     EventCacheConfig,
     EventLockConfig,
     EventViewConfig,
+    KafkaConfig,
     PaymentApiConfig,
     PostgresConfig,
     ProtectionApiConfig,
     ProtectionRetryConfig,
+    PurchaseGeneratorConfig,
     RedisConfig,
     ReportConfig,
     Settings,
@@ -23,6 +25,7 @@ from app.config import (
 from app.application.ports import EventReportScheduler, ProtectionRecalculationScheduler
 from app.infrastructure.api_connectors.payment import PaymentConnector
 from app.infrastructure.api_connectors.protection import ProtectionConnector
+from app.infrastructure.kafka.purchase_event_publisher import PurchaseEventPublisher
 from app.infrastructure.postgres.manager import DatabaseManager, PostgresClient
 from app.infrastructure.redis.event_cache import EventCache
 from app.infrastructure.redis.event_view_deduplicator import EventViewDeduplicator
@@ -31,14 +34,15 @@ from app.infrastructure.taskiq.report_task_scheduler import ReportTaskScheduler
 from app.services.catalog import CatalogService
 from app.services.checkout import CheckoutService
 from app.services.dashboard import DashboardService
-from app.services.event_report_builder import EventReportBuilder
 from app.services.event_reader import EventReader
+from app.services.event_report_builder import EventReportBuilder
 from app.services.event_view_collector import EventViewCollector
 from app.services.event_view_tracker import EventViewTracker
 from app.services.expired_booking_cleaner import ExpiredBookingCleaner
 from app.services.organizer import OrganizerService
 from app.services.payment import PaymentService
 from app.services.protection_recalculator import ProtectionRecalculator
+from app.services.purchase_event_generator import PurchaseEventGenerator
 
 
 class ConfigProvider(Provider):
@@ -89,6 +93,14 @@ class ConfigProvider(Provider):
     @provide(scope=Scope.APP)
     def get_protection_retry_config(self, settings: Settings) -> ProtectionRetryConfig:
         return settings.protection_retry
+
+    @provide(scope=Scope.APP)
+    def get_kafka_config(self, settings: Settings) -> KafkaConfig:
+        return settings.kafka
+
+    @provide(scope=Scope.APP)
+    def get_purchase_generator_config(self, settings: Settings) -> PurchaseGeneratorConfig:
+        return settings.purchase_generator
 
 
 class PostgresProvider(Provider):
@@ -184,6 +196,19 @@ class ServiceProvider(Provider):
     @provide(scope=Scope.APP)
     def get_protection_scheduler(self) -> ProtectionRecalculationScheduler:
         return ProtectionTaskScheduler()
+
+    @provide(scope=Scope.APP)
+    def get_purchase_event_publisher(self, config: KafkaConfig) -> PurchaseEventPublisher:
+        # продюсер Kafka на всё приложение, поднимается и гасится в lifespan
+        return PurchaseEventPublisher(config=config)
+
+    @provide(scope=Scope.APP)
+    def get_purchase_event_generator(
+        self,
+        publisher: PurchaseEventPublisher,
+        config: PurchaseGeneratorConfig,
+    ) -> PurchaseEventGenerator:
+        return PurchaseEventGenerator(publisher=publisher, config=config)
 
     @provide(scope=Scope.REQUEST)
     def get_expired_booking_cleaner(self, db: DatabaseManager) -> ExpiredBookingCleaner:
