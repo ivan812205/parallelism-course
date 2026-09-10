@@ -58,6 +58,27 @@ class EventViewConfig(BaseModel):
     queue_maxsize: int = 10_000
 
 
+class TaskiqConfig(BaseModel):
+    # свои очереди на каждый тип фоновых задач: отчёты, внешние API, регламентные работы
+    reports_queue: str = "afisha.reports"
+    external_queue: str = "afisha.external"
+    maintenance_queue: str = "afisha.maintenance"
+
+
+class ReportConfig(BaseModel):
+    # на проде тут было бы S3, локально — каталог рядом с приложением
+    directory: str = "reports"
+    # генерация PDF уезжает в отдельные процессы: reportlab считает на Python
+    # и GIL не отпускает, поэтому поток параллелизма не дал бы
+    process_workers: int = 2
+
+
+class ProtectionRetryConfig(BaseModel):
+    # ручка ждала страховку не дольше своего таймаута, фон пробует ещё дважды
+    attempts: int = 2
+    delay_seconds: float = 2.0
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
@@ -74,3 +95,6 @@ class Settings(BaseSettings):
     event_cache: EventCacheConfig = Field(default_factory=EventCacheConfig)
     event_lock: EventLockConfig = Field(default_factory=EventLockConfig)
     event_views: EventViewConfig = Field(default_factory=EventViewConfig)
+    taskiq: TaskiqConfig = Field(default_factory=TaskiqConfig)
+    reports: ReportConfig = Field(default_factory=ReportConfig)
+    protection_retry: ProtectionRetryConfig = Field(default_factory=ProtectionRetryConfig)

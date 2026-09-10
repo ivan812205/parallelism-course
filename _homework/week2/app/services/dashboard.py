@@ -1,14 +1,16 @@
 import asyncio
 
 from app.application.dto import DashboardData, OccupancyData, SalesData
+from app.application.ports import EventReportScheduler
 from app.domain.enums import SeatStatus
 from app.domain.exceptions import EventNotFoundError
 from app.infrastructure.postgres.manager import DatabaseManager
 
 
 class DashboardService:
-    def __init__(self, db: DatabaseManager) -> None:
+    def __init__(self, db: DatabaseManager, reports: EventReportScheduler) -> None:
         self._db = db
+        self._reports = reports
 
     async def build(self, *, event_id: int, organizer_id: int) -> DashboardData:
         event = await self._db.events.get(event_id)
@@ -22,12 +24,16 @@ class DashboardService:
             sales_task = tg.create_task(self._sales(event_id))
             occupancy_task = tg.create_task(self._occupancy(event_id))
 
-        return DashboardData(
+        dashboard = DashboardData(
             event_title=event.title,
             starts_at=event.starts_at,
             sales=sales_task.result(),
             occupancy=occupancy_task.result(),
         )
+        # PDF-отчёт по этим же данным собирается в фоне: чем именно — решает
+        # инфраструктура, сервис знает только, что отчёт нужен
+        await self._reports.schedule(event_id=event_id, dashboard=dashboard)
+        return dashboard
 
     async def _sales(self, event_id: int) -> SalesData:
         async with self._db.transaction() as tx:

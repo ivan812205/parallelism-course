@@ -18,7 +18,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from app.schemas import EventDashboard
+from app.application.dto import DashboardData
 
 
 FONT_DIR = Path(__file__).parent / "assets" / "fonts"
@@ -49,7 +49,7 @@ class OccupancyBar(Flowable):
 
 
 def generate_event_dashboard_pdf(
-    dashboard: EventDashboard,
+    dashboard: DashboardData,
     output_path: str | Path,
     generated_at: datetime | None = None,
 ) -> Path:
@@ -292,7 +292,7 @@ def _summary_cards(
 
 
 def _sales_table(
-    dashboard: EventDashboard,
+    dashboard: DashboardData,
     styles: dict[str, ParagraphStyle],
 ) -> Table:
     sales = dashboard.sales
@@ -307,7 +307,7 @@ def _sales_table(
 
 
 def _occupancy_table(
-    dashboard: EventDashboard,
+    dashboard: DashboardData,
     styles: dict[str, ParagraphStyle],
 ) -> Table:
     occupancy = dashboard.occupancy

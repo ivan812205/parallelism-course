@@ -44,6 +44,14 @@ class EventSeatRepo(BaseRepo):
             .values(status=SeatStatus.sold)
         )
 
+    async def release(self, booking_ids: list[int]) -> None:
+        """Возвращает места в продажу: снимает резерв просроченных броней."""
+        await self.session.execute(
+            update(EventSeat)
+            .where(EventSeat.booking_id.in_(booking_ids))
+            .values(status=SeatStatus.available, booking_id=None, reserved_until=None)
+        )
+
     def create_for_event(self, event_id: int, seat_ids: list[int], price: int) -> None:
         self.session.add_all(
             EventSeat(event_id=event_id, seat_id=seat_id, price=price) for seat_id in seat_ids
